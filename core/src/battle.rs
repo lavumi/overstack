@@ -1,4 +1,5 @@
-use crate::log::log_line;
+use crate::event::Event;
+use crate::log::push_event;
 use crate::model::{BattleOutcome, BattleState, Team, Unit};
 use crate::rng::SimpleRng;
 
@@ -44,8 +45,20 @@ pub fn create_battle(
 }
 
 /// Runs gauge-based battle ticks until victory/defeat is decided.
-pub fn run_battle(state: &mut BattleState, rng: &mut SimpleRng, label: &str) -> BattleOutcome {
-    log_line(&format!("[battle:start] {label}"));
+pub fn run_battle(
+    state: &mut BattleState,
+    rng: &mut SimpleRng,
+    battle_index: u32,
+    enemy_name: &'static str,
+    logs: &mut Vec<String>,
+) -> BattleOutcome {
+    push_event(
+        logs,
+        Event::BattleStart {
+            battle_index,
+            enemy_name,
+        },
+    );
 
     let hard_tick_limit = 20_000;
     while state.tick < hard_tick_limit {
@@ -85,6 +98,7 @@ pub fn run_battle(state: &mut BattleState, rng: &mut SimpleRng, label: &str) -> 
             state.units[actor_idx].action_gauge -= 100.0;
 
             let actor_team = state.units[actor_idx].team;
+            let actor = team_to_actor(actor_team);
             let target_team = if actor_team == Team::Player {
                 Team::Enemy
             } else {
@@ -110,40 +124,91 @@ pub fn run_battle(state: &mut BattleState, rng: &mut SimpleRng, label: &str) -> 
 
             let target_idx = target_indices[rng.range_usize(target_indices.len())];
             let damage = state.units[actor_idx].atk.max(1);
-            let actor_id = state.units[actor_idx].id;
-            let target_id = state.units[target_idx].id;
+            let target = team_to_actor(target_team);
+
+            push_event(logs, Event::TurnReady { actor });
+            push_event(
+                logs,
+                Event::ActionUsed {
+                    actor,
+                    action_name: "basic_attack",
+                },
+            );
 
             state.units[target_idx].hp -= damage;
             if state.units[target_idx].hp < 0 {
                 state.units[target_idx].hp = 0;
             }
 
-            log_line(&format!(
-                "[battle:act] tick={} actor={:?}#{} -> target={:?}#{} dmg={} target_hp={}",
-                state.tick,
-                actor_team,
-                actor_id,
-                target_team,
-                target_id,
-                damage,
-                state.units[target_idx].hp
-            ));
+            push_event(
+                logs,
+                Event::DamageDealt {
+                    src: actor,
+                    dst: target,
+                    amount: damage,
+                    dst_hp_after: state.units[target_idx].hp,
+                },
+            );
+
+            // Placeholder status flow so UI can test status event rendering.
+            push_event(
+                logs,
+                Event::StatusApplied {
+                    src: actor,
+                    dst: target,
+                    status: "burn",
+                    stacks: 1,
+                    duration: 1,
+                },
+            );
+            push_event(
+                logs,
+                Event::StatusTick {
+                    dst: target,
+                    status: "burn",
+                    amount: 0,
+                    dst_hp_after: state.units[target_idx].hp,
+                },
+            );
+            push_event(
+                logs,
+                Event::StatusExpired {
+                    dst: target,
+                    status: "burn",
+                },
+            );
 
             if !has_alive(&state.units, Team::Enemy) {
-                log_line(&format!("[battle:end] {label} => VICTORY"));
+                push_event(
+                    logs,
+                    Event::BattleEnd {
+                        result: "win",
+                        player_hp_after: player_hp_after_battle(state),
+                    },
+                );
                 return BattleOutcome::Victory;
             }
 
             if !has_alive(&state.units, Team::Player) {
-                log_line(&format!("[battle:end] {label} => DEFEAT"));
+                push_event(
+                    logs,
+                    Event::BattleEnd {
+                        result: "lose",
+                        player_hp_after: 0,
+                    },
+                );
                 return BattleOutcome::Defeat;
             }
         }
     }
 
-    log_line(&format!(
-        "[battle:end] {label} => DEFEAT (tick limit reached)"
-    ));
+    push_event(
+        logs,
+        Event::BattleEnd {
+            result: "lose",
+            player_hp_after: player_hp_after_battle(state),
+        },
+    );
     BattleOutcome::Defeat
 }
 
@@ -158,4 +223,11 @@ pub fn player_hp_after_battle(state: &BattleState) -> i32 {
 
 fn has_alive(units: &[Unit], team: Team) -> bool {
     units.iter().any(|u| u.team == team && u.is_alive())
+}
+
+fn team_to_actor(team: Team) -> &'static str {
+    match team {
+        Team::Player => "player",
+        Team::Enemy => "enemy",
+    }
 }

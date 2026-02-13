@@ -1,4 +1,5 @@
 mod battle;
+mod event;
 mod log;
 mod model;
 mod rng;
@@ -20,8 +21,8 @@ pub fn run_sim(seed: u32, steps: u32) -> u32 {
     state
 }
 
-/// Runs one game run skeleton and returns number of cleared nodes.
+/// Runs one game run skeleton and returns event JSON lines.
 #[wasm_bindgen]
-pub fn run_run(seed: u32, max_nodes: u32) -> u32 {
+pub fn run_run(seed: u32, max_nodes: u32) -> Vec<String> {
     run::run_run_internal(seed as u64, max_nodes)
 }

@@ -3,13 +3,111 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Overstack WASM Demo</title>
+    <title>Overstack Log Viewer</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 16px;
+        font-family: sans-serif;
+        background: #0e1116;
+        color: #e6edf3;
+        min-height: 100vh;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        gap: 12px;
+      }
+
+      .controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .controls input {
+        width: 120px;
+        padding: 6px 8px;
+      }
+
+      .controls button {
+        padding: 6px 10px;
+        cursor: pointer;
+      }
+
+      #log {
+        margin: 0;
+        padding: 12px;
+        border: 1px solid #2f3742;
+        border-radius: 8px;
+        background: #111827;
+        color: #d1fae5;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        line-height: 1.35;
+        overflow: auto;
+        white-space: pre-wrap;
+      }
+
+      .status {
+        border: 1px solid #2f3742;
+        border-radius: 8px;
+        background: #151b23;
+        padding: 10px 12px;
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 8px;
+        font-size: 14px;
+      }
+
+      .status strong {
+        display: block;
+        color: #8b949e;
+        font-size: 12px;
+        margin-bottom: 4px;
+      }
+    </style>
   </head>
   <body>
-    <h1>Overstack WASM Demo</h1>
-    <p>브라우저 콘솔을 열어 WASM 초기화/시뮬레이션 로그를 확인하세요.</p>
+    <section class="controls">
+      <label for="seedInput">Seed</label>
+      <input id="seedInput" type="number" value="1234" />
+      <button id="startBtn" type="button">Start</button>
+      <button id="resetBtn" type="button">Reset</button>
+      <span id="bootStatus">WASM loading...</span>
+    </section>
 
-    <!-- main.js가 wasm 모듈 초기화 및 run_sim 호출을 수행합니다. -->
+    <pre id="log" aria-live="polite"></pre>
+
+    <section class="status">
+      <div>
+        <strong>현재 노드 번호</strong>
+        <span id="statusNode">-</span>
+      </div>
+      <div>
+        <strong>현재 전투 번호</strong>
+        <span id="statusBattle">-</span>
+      </div>
+      <div>
+        <strong>플레이어 HP</strong>
+        <span id="statusPlayerHp">-</span>
+      </div>
+      <div>
+        <strong>적 HP</strong>
+        <span id="statusEnemyHp">-</span>
+      </div>
+      <div>
+        <strong>전투 결과</strong>
+        <span id="statusResult">진행 중</span>
+      </div>
+    </section>
+
+    <!-- ESM main.js loads ./pkg/core.js via relative path. -->
     <script type="module" src="./main.js"></script>
   </body>
 </html>

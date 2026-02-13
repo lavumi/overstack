@@ -44,6 +44,7 @@ pub struct BattleState {
 }
 
 /// Full run state placeholder. Keeps RNG and run progression fields.
+#[allow(dead_code)]
 pub struct RunState {
     pub seed: u64,
     pub rng: crate::rng::SimpleRng,

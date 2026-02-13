@@ -10,6 +10,7 @@ Rust + `wasm-pack` 기반 WASM 코어와 브라우저 정적 페이지 기본 �
 │   ├── Cargo.toml
 │   └── src
 │       ├── battle.rs
+│       ├── event.rs
 │       ├── lib.rs
 │       ├── log.rs
 │       ├── model.rs
@@ -26,7 +27,7 @@ Rust + `wasm-pack` 기반 WASM 코어와 브라우저 정적 페이지 기본 �
 ## Exported API
 
 - `run_sim(seed, steps) -> u32`: 최소 샘플 시뮬레이션
-- `run_run(seed, max_nodes) -> u32`: 한 판(run) 실행, 클리어한 노드 수 반환
+- `run_run(seed, max_nodes) -> Vec<String>`: 한 판(run) 실행 이벤트 배열 반환 (각 원소는 이벤트 JSON 문자열)
 
 `run_run`은 기본적으로 아래 순서로 진행됩니다.
 
@@ -63,19 +64,24 @@ wasm-pack build --target web --out-dir ../site/pkg
 
 ```bash
 cd site
-python3 -m http.server 8080
+python3 -m http.server
 ```
 
-그 후 [http://localhost:8080](http://localhost:8080) 접속.
+그 후 [http://localhost:8000](http://localhost:8000) 접속.
 
-브라우저 콘솔에서 아래 로그를 확인할 수 있습니다.
+브라우저 화면의 로그 뷰어에서 구조화된 이벤트 기반 로그를 확인할 수 있습니다.
 
-- `sim started`
-- `sim result: ...`
-- `[run:start] ...`
-- `[battle:start] ...`
-- `[battle:act] ...`
-- `[run:end] ...`
+- `RunStart`
+- `NodeStart`
+- `BattleStart`
+- `TurnReady`
+- `ActionUsed`
+- `DamageDealt`
+- `StatusApplied`
+- `StatusTick`
+- `StatusExpired`
+- `BattleEnd`
+- `RunEnd`
 
 ## 한 번에 실행 (빌드 + 서버 실행)
 
@@ -88,12 +94,15 @@ python3 -m http.server 8080
 - 기본 동작: 백그라운드 실행 (`site_server.pid`, `site_server.log` 생성)
 - 포그라운드 실행: `./run_wasm_site.sh --fg`
 
-## run_run 호출 예시
+## run_run 호출 예시 (Event JSON)
 
 ```js
 import init, { run_run } from "./pkg/core.js";
 
 await init();
-const cleared = run_run(42, 6);
-console.log("cleared nodes:", cleared);
+const events = run_run(42, 6);
+for (const eventJson of events) {
+  const event = JSON.parse(eventJson);
+  console.log(event.kind, event);
+}
 ```
