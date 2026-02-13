@@ -3,14 +3,18 @@ use crate::log::push_event;
 use crate::model::{BattleOutcome, BattleState, Team, Unit};
 use crate::rng::SimpleRng;
 
+fn hp2(v: f32) -> f32 {
+    (v * 100.0).round() / 100.0
+}
+
 /// Creates a normal battle with one player unit and a small enemy pack.
 pub fn create_battle(
-    player_hp: i32,
-    player_max_hp: i32,
+    player_hp: f32,
+    player_max_hp: f32,
     player_atk: i32,
     player_speed: f32,
     enemy_count: u32,
-    enemy_hp: i32,
+    enemy_hp: f32,
     enemy_atk: i32,
     enemy_speed: f32,
 ) -> BattleState {
@@ -18,8 +22,8 @@ pub fn create_battle(
     units.push(Unit {
         id: 0,
         team: Team::Player,
-        hp: player_hp,
-        max_hp: player_max_hp,
+        hp: hp2(player_hp),
+        max_hp: hp2(player_max_hp),
         atk: player_atk,
         speed: player_speed,
         action_gauge: 0.0,
@@ -29,8 +33,8 @@ pub fn create_battle(
         units.push(Unit {
             id: idx + 1,
             team: Team::Enemy,
-            hp: enemy_hp,
-            max_hp: enemy_hp,
+            hp: hp2(enemy_hp),
+            max_hp: hp2(enemy_hp),
             atk: enemy_atk,
             speed: enemy_speed,
             action_gauge: 0.0,
@@ -123,7 +127,7 @@ pub fn run_battle(
             }
 
             let target_idx = target_indices[rng.range_usize(target_indices.len())];
-            let damage = state.units[actor_idx].atk.max(1);
+            let damage = (state.units[actor_idx].atk as f32).max(0.01);
             let target = team_to_actor(target_team);
 
             push_event(logs, Event::TurnReady { actor });
@@ -135,10 +139,7 @@ pub fn run_battle(
                 },
             );
 
-            state.units[target_idx].hp -= damage;
-            if state.units[target_idx].hp < 0 {
-                state.units[target_idx].hp = 0;
-            }
+            state.units[target_idx].hp = hp2((state.units[target_idx].hp - damage).max(0.0));
 
             push_event(
                 logs,
@@ -150,7 +151,6 @@ pub fn run_battle(
                 },
             );
 
-            // Placeholder status flow so UI can test status event rendering.
             push_event(
                 logs,
                 Event::StatusApplied {
@@ -166,7 +166,7 @@ pub fn run_battle(
                 Event::StatusTick {
                     dst: target,
                     status: "burn",
-                    amount: 0,
+                    amount: 0.0,
                     dst_hp_after: state.units[target_idx].hp,
                 },
             );
@@ -194,7 +194,7 @@ pub fn run_battle(
                     logs,
                     Event::BattleEnd {
                         result: "lose",
-                        player_hp_after: 0,
+                        player_hp_after: 0.0,
                     },
                 );
                 return BattleOutcome::Defeat;
@@ -212,13 +212,13 @@ pub fn run_battle(
     BattleOutcome::Defeat
 }
 
-pub fn player_hp_after_battle(state: &BattleState) -> i32 {
+pub fn player_hp_after_battle(state: &BattleState) -> f32 {
     state
         .units
         .iter()
         .find(|u| u.team == Team::Player)
         .map(|u| u.hp)
-        .unwrap_or(0)
+        .unwrap_or(0.0)
 }
 
 fn has_alive(units: &[Unit], team: Team) -> bool {

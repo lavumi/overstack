@@ -1,4 +1,9 @@
 use crate::event::Event;
+use std::cell::Cell;
+
+thread_local! {
+    static CURRENT_LOG_TICK: Cell<u32> = const { Cell::new(0) };
+}
 
 #[cfg(target_arch = "wasm32")]
 mod wasm_log {
@@ -25,7 +30,15 @@ pub fn log_line(message: &str) {
 
 /// Writes an event as a JSON line and mirrors it to console.
 pub fn push_event(logs: &mut Vec<String>, event: Event) {
-    let line = event.to_json_line();
+    let mut line = event.to_json_line();
+    let tick = CURRENT_LOG_TICK.with(|v| v.get());
+    if line.starts_with('{') {
+        line.insert_str(1, &format!("\"tick\":{tick},"));
+    }
     log_line(&line);
     logs.push(line);
+}
+
+pub fn set_log_tick(tick: u32) {
+    CURRENT_LOG_TICK.with(|v| v.set(tick));
 }

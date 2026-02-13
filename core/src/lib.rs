@@ -1,10 +1,13 @@
 mod battle;
+mod engine;
 mod event;
 mod log;
 mod model;
 mod rng;
 mod run;
+mod skill;
 mod step_api;
+mod trait_spec;
 
 use wasm_bindgen::prelude::*;
 

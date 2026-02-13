@@ -2,9 +2,14 @@
 import init, {
   create_run,
   destroy_run,
+  get_active_traits,
+  get_player_skills,
+  get_selectable_trait_ids,
+  get_selectable_trait_names,
   get_snapshot,
   reset_run,
   run_run,
+  set_active_trait,
   step_with_action,
 } from "./pkg/core.js";
 
@@ -18,6 +23,7 @@ const statusBattle = document.getElementById("statusBattle");
 const statusPlayerHp = document.getElementById("statusPlayerHp");
 const statusEnemyHp = document.getElementById("statusEnemyHp");
 const statusResult = document.getElementById("statusResult");
+const statusTraits = document.getElementById("statusTraits");
 const inputPrompt = document.getElementById("inputPrompt");
 
 const actionBasicBtn = document.getElementById("actionBasic");
@@ -35,8 +41,9 @@ const MAX_LOG_LINES = 30;
 
 let currentHandle = null;
 let loopTimer = null;
-let waitingForInput = false;
 let logLines = [];
+let uiMode = "idle"; // idle | trait_select | running | need_input | ended
+let selectableTraitIds = [];
 
 function stopLoop() {
   if (loopTimer !== null) {
@@ -45,15 +52,30 @@ function stopLoop() {
   }
 }
 
-function setInputWaitingState(waiting) {
-  waitingForInput = waiting;
-
-  actionBasicBtn.disabled = !waiting;
+function setActionButtonsEnabled(enabled) {
+  actionBasicBtn.disabled = !enabled;
   for (const button of actionSkillButtons) {
-    button.disabled = !waiting;
+    button.disabled = !enabled;
   }
+}
 
-  inputPrompt.textContent = waiting ? "Choose action" : "";
+function setInputPrompt(text) {
+  inputPrompt.textContent = text;
+}
+
+function setCombatLabels(skillNames) {
+  actionBasicBtn.textContent = "Basic Attack";
+  for (let i = 0; i < actionSkillButtons.length; i += 1) {
+    actionSkillButtons[i].textContent = skillNames[i] || `Skill ${i + 1}`;
+  }
+}
+
+function setTraitLabels(traitNames) {
+  const labels = [traitNames[0], traitNames[1], traitNames[2], traitNames[3], traitNames[4]];
+  actionBasicBtn.textContent = labels[0] || "Trait 1";
+  for (let i = 0; i < actionSkillButtons.length; i += 1) {
+    actionSkillButtons[i].textContent = labels[i + 1] || `Trait ${i + 2}`;
+  }
 }
 
 function resetStatus() {
@@ -62,13 +84,18 @@ function resetStatus() {
   statusPlayerHp.textContent = "-";
   statusEnemyHp.textContent = "-";
   statusResult.textContent = "진행 중";
+  statusTraits.textContent = "-";
 }
 
 function resetAll() {
   logLines = [];
   logEl.textContent = "";
   resetStatus();
-  setInputWaitingState(false);
+  setCombatLabels([]);
+  setActionButtonsEnabled(false);
+  setInputPrompt("");
+  selectableTraitIds = [];
+  uiMode = "idle";
 }
 
 function formatEventLine(event) {
@@ -84,17 +111,21 @@ function formatEventLine(event) {
     case "ActionUsed":
       return `[ActionUsed] actor=${event.actor} action=${event.action_name}`;
     case "DamageDealt":
-      return `[DamageDealt] ${event.src} -> ${event.dst} dmg=${event.amount} dst_hp=${event.dst_hp_after}`;
+      return `[DamageDealt] ${event.src} -> ${event.dst} dmg=${Number(event.amount).toFixed(2)} dst_hp=${Number(event.dst_hp_after).toFixed(2)}`;
     case "StatusApplied":
       return `[StatusApplied] ${event.src} -> ${event.dst} ${event.status} stacks=${event.stacks} duration=${event.duration}`;
     case "StatusTick":
-      return `[StatusTick] ${event.dst} ${event.status} amount=${event.amount} hp=${event.dst_hp_after}`;
+      return `[StatusTick] ${event.dst} ${event.status} amount=${Number(event.amount).toFixed(2)} hp=${Number(event.dst_hp_after).toFixed(2)}`;
     case "StatusExpired":
       return `[StatusExpired] ${event.dst} ${event.status}`;
     case "BattleEnd":
-      return `[BattleEnd] result=${event.result} player_hp=${event.player_hp_after}`;
+      return `[BattleEnd] result=${event.result} player_hp=${Number(event.player_hp_after).toFixed(2)}`;
     case "RunEnd":
       return `[RunEnd] result=${event.result} final_node=${event.final_node_index}`;
+    case "TraitTriggered":
+      return `[TraitTriggered] ${event.trait_name} via ${event.trigger_type}`;
+    case "TraitEffectApplied":
+      return `[TraitEffectApplied] ${event.trait_name}: ${event.effect_summary}`;
     default:
       return `[UnknownEvent] ${JSON.stringify(event)}`;
   }
@@ -115,7 +146,10 @@ function appendEventLines(events) {
 
   for (const line of events) {
     const event = parseEvent(line);
-    logLines.push(formatEventLine(event));
+    const tickLabel = Number.isFinite(Number(event.tick))
+      ? `t=${String(Math.trunc(Number(event.tick))).padStart(4, "0")}`
+      : "t=----";
+    logLines.push(`[${tickLabel}] ${formatEventLine(event)}`);
   }
 
   if (logLines.length > MAX_LOG_LINES) {
@@ -127,14 +161,21 @@ function appendEventLines(events) {
 }
 
 function updateHudFromSnapshot(snapshot) {
+  const playerHpInt = Math.round(snapshot.player.hp);
+  const playerMaxHpInt = Math.round(snapshot.player.max_hp);
+  const enemyHpInt = Math.round(snapshot.enemy.hp);
+  const enemyMaxHpInt = Math.round(snapshot.enemy.max_hp);
+
   statusNode.textContent = String(snapshot.node_index);
   statusBattle.textContent = String(snapshot.battle_index);
-  statusPlayerHp.textContent = `${snapshot.player.hp}/${snapshot.player.max_hp} | ${snapshot.player.action_gauge.toFixed(1)}`;
-  statusEnemyHp.textContent = `${snapshot.enemy.hp}/${snapshot.enemy.max_hp} | ${snapshot.enemy.action_gauge.toFixed(1)}`;
+  statusPlayerHp.textContent = `${playerHpInt}/${playerMaxHpInt} | ${snapshot.player.action_gauge.toFixed(1)}`;
+  statusEnemyHp.textContent = `${enemyHpInt}/${enemyMaxHpInt} | ${snapshot.enemy.action_gauge.toFixed(1)}`;
 
   if (snapshot.run_state === "ended") {
     statusResult.textContent = snapshot.run_result === "win" ? "승리" : "패배";
-    setInputWaitingState(false);
+    uiMode = "ended";
+    setActionButtonsEnabled(false);
+    setInputPrompt("");
   }
 }
 
@@ -143,29 +184,36 @@ function processStepResult(result) {
 
   if (result.error) {
     statusResult.textContent = `오류: ${result.error}`;
-    setInputWaitingState(false);
+    uiMode = "ended";
+    setActionButtonsEnabled(false);
+    setInputPrompt("");
     stopLoop();
     return;
   }
 
   if (result.need_input) {
     statusResult.textContent = "입력 대기";
-    setInputWaitingState(true);
+    uiMode = "need_input";
+    setActionButtonsEnabled(true);
+    setInputPrompt("Choose action");
     stopLoop();
     return;
   }
 
   if (result.ended) {
-    setInputWaitingState(false);
+    uiMode = "ended";
+    setActionButtonsEnabled(false);
+    setInputPrompt("");
     stopLoop();
     return;
   }
 
   statusResult.textContent = "진행 중";
+  uiMode = "running";
 }
 
 function tickRun() {
-  if (currentHandle === null || waitingForInput) {
+  if (currentHandle === null || uiMode !== "running") {
     return;
   }
 
@@ -200,34 +248,82 @@ function startRun() {
   const safeSeed = Number.isNaN(seed) ? 1234 : seed;
 
   currentHandle = create_run(safeSeed, MAX_NODES);
+
+  const traitNames = get_selectable_trait_names();
+  selectableTraitIds = get_selectable_trait_ids();
+  setTraitLabels(traitNames);
+  setActionButtonsEnabled(true);
+  setInputPrompt("Choose one trait");
+  statusResult.textContent = "특성 선택";
+  uiMode = "trait_select";
+
   updateHudFromSnapshot(get_snapshot(currentHandle));
-  startLoop();
 }
 
-function submitAction(actionKind, actionArg) {
-  if (currentHandle === null || !waitingForInput) {
+function submitCombatAction(actionKind, actionArg) {
+  if (currentHandle === null || uiMode !== "need_input") {
     return;
   }
 
-  setInputWaitingState(false);
+  setActionButtonsEnabled(false);
+  setInputPrompt("");
 
   const result = step_with_action(currentHandle, 0.0, actionKind, actionArg);
   processStepResult(result);
   updateHudFromSnapshot(get_snapshot(currentHandle));
 
-  if (!waitingForInput) {
+  if (uiMode === "running") {
     startLoop();
   }
 }
 
-actionBasicBtn.addEventListener("click", () => {
-  submitAction("basic", -1);
-});
+function chooseTraitByButtonIndex(index) {
+  if (currentHandle === null || uiMode !== "trait_select") {
+    return;
+  }
 
+  const traitId = selectableTraitIds[index];
+  if (!traitId) {
+    return;
+  }
+
+  const ok = set_active_trait(currentHandle, traitId);
+  if (!ok) {
+    statusResult.textContent = "특성 선택 실패";
+    return;
+  }
+
+  const activeTraits = get_active_traits(currentHandle);
+  statusTraits.textContent = activeTraits.length > 0 ? activeTraits.join(", ") : "-";
+
+  const skills = get_player_skills(currentHandle);
+  setCombatLabels(skills);
+  setActionButtonsEnabled(false);
+  setInputPrompt("");
+
+  statusResult.textContent = "진행 중";
+  uiMode = "running";
+  startLoop();
+}
+
+function onActionButton(index) {
+  if (uiMode === "trait_select") {
+    chooseTraitByButtonIndex(index);
+    return;
+  }
+
+  if (uiMode === "need_input") {
+    if (index === 0) {
+      submitCombatAction("basic", -1);
+    } else {
+      submitCombatAction("skill", index - 1);
+    }
+  }
+}
+
+actionBasicBtn.addEventListener("click", () => onActionButton(0));
 actionSkillButtons.forEach((button, idx) => {
-  button.addEventListener("click", () => {
-    submitAction("skill", idx);
-  });
+  button.addEventListener("click", () => onActionButton(idx + 1));
 });
 
 startBtn.addEventListener("click", () => {

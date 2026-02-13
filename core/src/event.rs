@@ -21,8 +21,8 @@ pub enum Event {
     DamageDealt {
         src: &'static str,
         dst: &'static str,
-        amount: i32,
-        dst_hp_after: i32,
+        amount: f32,
+        dst_hp_after: f32,
     },
     StatusApplied {
         src: &'static str,
@@ -34,8 +34,8 @@ pub enum Event {
     StatusTick {
         dst: &'static str,
         status: &'static str,
-        amount: i32,
-        dst_hp_after: i32,
+        amount: f32,
+        dst_hp_after: f32,
     },
     StatusExpired {
         dst: &'static str,
@@ -43,11 +43,19 @@ pub enum Event {
     },
     BattleEnd {
         result: &'static str,
-        player_hp_after: i32,
+        player_hp_after: f32,
     },
     RunEnd {
         result: &'static str,
         final_node_index: u32,
+    },
+    TraitTriggered {
+        trait_name: &'static str,
+        trigger_type: &'static str,
+    },
+    TraitEffectApplied {
+        trait_name: &'static str,
+        effect_summary: String,
     },
 }
 
@@ -100,8 +108,8 @@ impl Event {
                     r#"{{"kind":"DamageDealt","src":"{}","dst":"{}","amount":{},"dst_hp_after":{}}}"#,
                     escape_json(src),
                     escape_json(dst),
-                    amount,
-                    dst_hp_after
+                    json_f32(*amount),
+                    json_f32(*dst_hp_after)
                 )
             }
             Event::StatusApplied {
@@ -130,8 +138,8 @@ impl Event {
                     r#"{{"kind":"StatusTick","dst":"{}","status":"{}","amount":{},"dst_hp_after":{}}}"#,
                     escape_json(dst),
                     escape_json(status),
-                    amount,
-                    dst_hp_after
+                    json_f32(*amount),
+                    json_f32(*dst_hp_after)
                 )
             }
             Event::StatusExpired { dst, status } => {
@@ -148,7 +156,7 @@ impl Event {
                 format!(
                     r#"{{"kind":"BattleEnd","result":"{}","player_hp_after":{}}}"#,
                     escape_json(result),
-                    player_hp_after
+                    json_f32(*player_hp_after)
                 )
             }
             Event::RunEnd {
@@ -161,6 +169,26 @@ impl Event {
                     final_node_index
                 )
             }
+            Event::TraitTriggered {
+                trait_name,
+                trigger_type,
+            } => {
+                format!(
+                    r#"{{"kind":"TraitTriggered","trait_name":"{}","trigger_type":"{}"}}"#,
+                    escape_json(trait_name),
+                    escape_json(trigger_type)
+                )
+            }
+            Event::TraitEffectApplied {
+                trait_name,
+                effect_summary,
+            } => {
+                format!(
+                    r#"{{"kind":"TraitEffectApplied","trait_name":"{}","effect_summary":"{}"}}"#,
+                    escape_json(trait_name),
+                    escape_json(effect_summary)
+                )
+            }
         }
     }
 }
@@ -170,4 +198,8 @@ fn escape_json(input: &str) -> String {
         .replace('\\', "\\\\")
         .replace('"', "\\\"")
         .replace('\n', "\\n")
+}
+
+fn json_f32(v: f32) -> String {
+    format!("{:.2}", v)
 }

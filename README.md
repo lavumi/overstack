@@ -16,7 +16,9 @@ Rust + `wasm-pack` 기반 WASM 코어와 브라우저 정적 페이지 기본 �
 │       ├── model.rs
 │       ├── rng.rs
 │       ├── run.rs
-│       └── step_api.rs
+│       ├── skill.rs
+│       ├── step_api.rs
+│       └── trait_spec.rs
 └── site
     ├── index.html
     └── main.js
@@ -33,6 +35,10 @@ Rust + `wasm-pack` 기반 WASM 코어와 브라우저 정적 페이지 기본 �
 - `step(handle, dt, player_action?) -> StepResult`: Object 입력 기반 step 호출 (디버그/내부용)
 - `step_with_action(handle, dt, action_kind, action_arg) -> StepResult`: 문자열 기반 입력 step 호출 (UI 권장)
 - `get_snapshot(handle) -> Snapshot`: HUD 갱신용 현재 상태 조회
+- `get_player_skills(handle) -> Vec<String>`: 슬롯 1~4 스킬 이름 조회
+- `get_active_traits(handle) -> Vec<String>`: 현재 활성 Trait 이름 조회
+- `get_selectable_trait_names() / get_selectable_trait_ids()`: 시작 시 선택 가능한 Trait 목록 조회
+- `set_active_trait(handle, trait_id) -> bool`: run에 단일 Trait 선택 적용
 - `reset_run(handle) -> bool` / `destroy_run(handle)`: run 재시작/정리
 
 `run_run`은 기본적으로 아래 순서로 진행됩니다.
@@ -43,6 +49,24 @@ Rust + `wasm-pack` 기반 WASM 코어와 브라우저 정적 페이지 기본 �
 각 전투는 게이지(`action_gauge`)가 100 이상인 유닛이 행동하며,
 플레이어/적 모두 기본 공격만 자동으로 수행합니다.
 전투 승리 시 임시 규칙으로 플레이어 최대 HP의 20%를 회복합니다.
+
+플레이어 슬롯 스킬 매핑:
+
+1. slot0: `Ember Lash`
+2. slot1: `Frost Bite`
+3. slot2: `Arc Jolt`
+4. slot3: `Ruin Strike`
+
+기본 활성 Trait:
+
+1. `Cinder Scholar`
+2. `Frozen Momentum`
+3. `Overcharge`
+4. `Hemorrhage`
+5. `Ruthless`
+6. `Shatterpoint`
+
+실행 시작 시에는 하단 액션 바에서 Trait를 1개 선택하고, 선택한 Trait만 활성화됩니다.
 
 ## 1) WASM 빌드
 
@@ -88,6 +112,8 @@ python3 -m http.server
 - `StatusExpired`
 - `BattleEnd`
 - `RunEnd`
+- `TraitTriggered`
+- `TraitEffectApplied`
 
 ## 한 번에 실행 (빌드 + 서버 실행)
 

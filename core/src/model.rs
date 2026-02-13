@@ -23,8 +23,8 @@ pub enum Team {
 pub struct Unit {
     pub id: u32,
     pub team: Team,
-    pub hp: i32,
-    pub max_hp: i32,
+    pub hp: f32,
+    pub max_hp: f32,
     pub atk: i32,
     pub speed: f32,
     pub action_gauge: f32,
@@ -32,7 +32,7 @@ pub struct Unit {
 
 impl Unit {
     pub fn is_alive(&self) -> bool {
-        self.hp > 0
+        self.hp > 0.0
     }
 }
 
@@ -51,8 +51,8 @@ pub struct RunState {
     pub floor: u32,
     pub stage: u32,
     pub meta_placeholder: u32,
-    pub player_hp: i32,
-    pub player_max_hp: i32,
+    pub player_hp: f32,
+    pub player_max_hp: f32,
     pub player_atk: i32,
     pub player_speed: f32,
 }
@@ -65,8 +65,8 @@ impl RunState {
             floor: 1,
             stage: 0,
             meta_placeholder: 0,
-            player_hp: 140,
-            player_max_hp: 140,
+            player_hp: 140.0,
+            player_max_hp: 140.0,
             player_atk: 17,
             player_speed: 35.0,
         }
