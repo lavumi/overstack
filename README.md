@@ -126,6 +126,24 @@ python3 -m http.server
 - 기본 동작: 백그라운드 실행 (`site_server.pid`, `site_server.log` 생성)
 - 포그라운드 실행: `./run_wasm_site.sh --fg`
 
+## GitHub Pages 배포 (GitHub Actions)
+
+워크플로 파일:
+
+- `/Users/lavumi/work/webrpg/.github/workflows/deploy-pages.yml`
+
+동작:
+
+1. `main` 브랜치 push 시 자동 실행
+2. `workflow_dispatch`로 수동 실행 가능
+3. `core`에서 `wasm-pack build --target web --out-dir ../site/pkg` 수행
+4. `site` 폴더를 GitHub Pages로 배포
+
+초기 1회 설정:
+
+1. GitHub 저장소 `Settings > Pages`로 이동
+2. `Build and deployment`의 Source를 `GitHub Actions`로 선택
+
 ## run_run 호출 예시 (Event JSON)
 
 ```js
