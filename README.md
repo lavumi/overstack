@@ -15,7 +15,8 @@ Rust + `wasm-pack` 기반 WASM 코어와 브라우저 정적 페이지 기본 �
 │       ├── log.rs
 │       ├── model.rs
 │       ├── rng.rs
-│       └── run.rs
+│       ├── run.rs
+│       └── step_api.rs
 └── site
     ├── index.html
     └── main.js
@@ -28,6 +29,11 @@ Rust + `wasm-pack` 기반 WASM 코어와 브라우저 정적 페이지 기본 �
 
 - `run_sim(seed, steps) -> u32`: 최소 샘플 시뮬레이션
 - `run_run(seed, max_nodes) -> Vec<String>`: 한 판(run) 실행 이벤트 배열 반환 (각 원소는 이벤트 JSON 문자열)
+- `create_run(seed, max_nodes) -> u32`: step 기반 실행용 run 핸들 생성
+- `step(handle, dt, player_action?) -> StepResult`: Object 입력 기반 step 호출 (디버그/내부용)
+- `step_with_action(handle, dt, action_kind, action_arg) -> StepResult`: 문자열 기반 입력 step 호출 (UI 권장)
+- `get_snapshot(handle) -> Snapshot`: HUD 갱신용 현재 상태 조회
+- `reset_run(handle) -> bool` / `destroy_run(handle)`: run 재시작/정리
 
 `run_run`은 기본적으로 아래 순서로 진행됩니다.
 
@@ -106,3 +112,12 @@ for (const eventJson of events) {
   console.log(event.kind, event);
 }
 ```
+
+## Step API 흐름
+
+1. `create_run(seed, max_nodes)`로 핸들 생성
+2. 루프에서 `step_with_action(handle, 0.1~0.2, "none", -1)` 반복 호출
+3. `StepResult.need_input === true`면 입력(예: `step_with_action(handle, 0.0, "basic", -1)`)을 넣어 재호출
+4. 매 루프마다 `get_snapshot(handle)`로 HUD 상태 갱신
+5. `StepResult.ended` 또는 `snapshot.run_state === \"ended\"`면 종료
+6. 필요 시 `reset_run(handle)` 또는 `destroy_run(handle)` 호출

@@ -4,6 +4,7 @@ mod log;
 mod model;
 mod rng;
 mod run;
+mod step_api;
 
 use wasm_bindgen::prelude::*;
 

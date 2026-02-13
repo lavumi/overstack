@@ -21,7 +21,7 @@
         color: #e6edf3;
         min-height: 100vh;
         display: grid;
-        grid-template-rows: auto 1fr auto;
+        grid-template-rows: auto 1fr auto auto;
         gap: 12px;
       }
 
@@ -71,6 +71,41 @@
         font-size: 12px;
         margin-bottom: 4px;
       }
+
+      .action-panel {
+        border: 1px solid #2f3742;
+        border-radius: 8px;
+        background: #151b23;
+        padding: 10px 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .action-panel button {
+        padding: 6px 10px;
+        border: 1px solid #3a4553;
+        background: #222b36;
+        color: #b8c1cc;
+      }
+
+      .action-panel button:disabled {
+        opacity: 0.6;
+      }
+
+      .action-panel button:not(:disabled) {
+        border-color: #34d399;
+        color: #d1fae5;
+        background: #11302a;
+        font-weight: 600;
+      }
+
+      #inputPrompt {
+        margin-left: 8px;
+        color: #f59e0b;
+        font-weight: 600;
+      }
     </style>
   </head>
   <body>
@@ -94,17 +129,26 @@
         <span id="statusBattle">-</span>
       </div>
       <div>
-        <strong>플레이어 HP</strong>
+        <strong>플레이어 HP / Gauge</strong>
         <span id="statusPlayerHp">-</span>
       </div>
       <div>
-        <strong>적 HP</strong>
+        <strong>적 HP / Gauge</strong>
         <span id="statusEnemyHp">-</span>
       </div>
       <div>
         <strong>전투 결과</strong>
         <span id="statusResult">진행 중</span>
       </div>
+    </section>
+
+    <section class="action-panel">
+      <button id="actionBasic" type="button" disabled>Basic Attack</button>
+      <button id="actionSkill1" type="button" disabled>Skill 1</button>
+      <button id="actionSkill2" type="button" disabled>Skill 2</button>
+      <button id="actionSkill3" type="button" disabled>Skill 3</button>
+      <button id="actionSkill4" type="button" disabled>Skill 4</button>
+      <span id="inputPrompt"></span>
     </section>
 
     <!-- ESM main.js loads ./pkg/core.js via relative path. -->
