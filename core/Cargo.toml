@@ -1,0 +1,13 @@
+[package]
+name = "core"
+version = "0.1.0"
+edition = "2021"
+description = "WASM simulation core for Overstack"
+
+[lib]
+# `cdylib` is required for WebAssembly build output.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# wasm-bindgen exposes Rust functions to JavaScript.
+wasm-bindgen = "0.2"

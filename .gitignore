@@ -1,0 +1,4 @@
+core/target/
+site/pkg/
+site_server.pid
+site_server.log
