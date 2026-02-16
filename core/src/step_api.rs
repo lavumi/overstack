@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
 
 use crate::battle::create_battle;
+use crate::data::{load_embedded_game_data, ErrorReport, GameData};
 use crate::event::Event;
-use crate::game_data::enemy_by_id;
 use crate::log::push_event;
 use crate::model::{BattleState, NodeType, RunState};
 use crate::skill::{player_skill_names, StatusType};
@@ -146,10 +146,17 @@ pub(crate) struct ActiveRun {
     pub(crate) result: &'static str,
     pub(crate) elapsed_time: f32,
     pub(crate) active_traits: Vec<TraitId>,
+    pub(crate) game_data: Option<&'static GameData>,
+    pub(crate) data_error: Option<ErrorReport>,
 }
 
 impl ActiveRun {
     pub(crate) fn new(seed: u64, max_nodes: u32) -> Self {
+        let (game_data, data_error) = match load_embedded_game_data() {
+            Ok(data) => (Some(data), None),
+            Err(err) => (None, Some(err)),
+        };
+
         Self {
             seed,
             max_nodes: max_nodes.min(6),
@@ -170,6 +177,8 @@ impl ActiveRun {
             result: "none",
             elapsed_time: 0.0,
             active_traits: Vec::new(),
+            game_data,
+            data_error,
         }
     }
 
@@ -232,10 +241,14 @@ impl ActiveRun {
 
         self.battle_index += 1;
         let (enemy_hp, enemy_atk, enemy_speed, enemy_name) = match node_type {
-            NodeType::Boss => enemy_by_id("overstack_core")
+            NodeType::Boss => self
+                .game_data
+                .and_then(|d| d.enemies.get("overstack_core"))
                 .map(|e| (e.max_hp, e.atk, e.speed, e.name))
                 .unwrap_or((220.0, 14, 32.0, "Overstack Core")),
-            _ => enemy_by_id("rogue_drone")
+            _ => self
+                .game_data
+                .and_then(|d| d.enemies.get("rogue_drone"))
                 .map(|e| (e.max_hp, e.atk, e.speed, e.name))
                 .unwrap_or((84.0, 11, 28.0, "Rogue Drone")),
         };

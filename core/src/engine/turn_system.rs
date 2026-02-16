@@ -1,5 +1,4 @@
 use crate::event::Event;
-use crate::game_data::load_embedded_game_data;
 use crate::log::{push_event, set_log_tick};
 use crate::model::Team;
 use crate::skill::{player_skill_for_slot, skill_by_id, EffectSpec, SkillSpec, StatType, StatusType};
@@ -229,12 +228,12 @@ impl ActiveRun {
         let mut events = Vec::new();
         set_log_tick(self.sim_tick());
 
-        if let Err(errors) = load_embedded_game_data() {
+        if let Some(errors) = &self.data_error {
             return StepResult {
                 events,
                 need_input: false,
                 ended: true,
-                error: format!("data_load_failed: {}", errors.join(" | ")),
+                error: format!("data_load_failed: {}", errors.join_messages()),
             };
         }
 

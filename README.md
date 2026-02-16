@@ -34,6 +34,14 @@ Rust + `wasm-pack` 기반 WASM 코어와 브라우저 정적 페이지 기본 �
 
 데이터 파일(`core/data/*.json`)은 런타임 fetch 없이 `include_str!`로 WASM 빌드 시점에 임베딩됩니다.
 
+내부 로더 구조(`core/src/data`):
+
+1. `defs.rs`: serde용 JSON Def 구조체
+2. `validate.rs`: 다중 에러 수집 Validator (`ErrorReport`)
+3. `compile.rs`: Def -> enum 기반 Spec/Registry 컴파일
+4. `registry.rs`: `OnceLock` 1회 로드/캐시 + 조회
+5. `errors.rs`: `DataError`, `ErrorReport`
+
 ## Exported API
 
 - `run_sim(seed, steps) -> u32`: 최소 샘플 시뮬레이션
