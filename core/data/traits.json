@@ -1,0 +1,128 @@
+{
+  "selectable_traits": ["cinder_scholar", "frozen_momentum", "overcharge", "ruthless", "shatterpoint"],
+  "traits": [
+    {
+      "id": "cinder_scholar",
+      "name": "Cinder Scholar",
+      "description": "Burn applied by player is stronger.",
+      "triggers": [
+        {
+          "on": "OnStatusApplied",
+          "condition": {
+            "type": "All",
+            "all": [
+              { "type": "AppliedStatusIs", "status": "Burn" }
+            ]
+          },
+          "effects": [
+            {
+              "type": "ModifyStatusPower",
+              "status": "Burn",
+              "multiplier": 1.25
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "frozen_momentum",
+      "name": "Frozen Momentum",
+      "description": "Applying Freeze adds Break stacks.",
+      "triggers": [
+        {
+          "on": "OnStatusApplied",
+          "condition": {
+            "type": "All",
+            "all": [
+              { "type": "AppliedStatusIs", "status": "Freeze" }
+            ]
+          },
+          "effects": [
+            {
+              "type": "AddStatusStacks",
+              "target": "Dst",
+              "status": "Break",
+              "stacks": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "overcharge",
+      "name": "Overcharge",
+      "description": "Applying Shock deals bonus pure damage.",
+      "triggers": [
+        {
+          "on": "OnStatusApplied",
+          "condition": {
+            "type": "All",
+            "all": [
+              { "type": "AppliedStatusIs", "status": "Shock" }
+            ]
+          },
+          "effects": [
+            {
+              "type": "DealPureDamage",
+              "target": "Dst",
+              "amount": 3.0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ruthless",
+      "name": "Ruthless",
+      "description": "Targets with 2+ statuses take extra damage.",
+      "triggers": [
+        {
+          "on": "OnDamageDealt",
+          "condition": {
+            "type": "All",
+            "all": [
+              { "type": "TargetStatusCountAtLeast", "n": 2 }
+            ]
+          },
+          "effects": [
+            {
+              "type": "DealDamage",
+              "multiplier": 0.2,
+              "flat": 0.0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "shatterpoint",
+      "name": "Shatterpoint",
+      "description": "Break on frozen targets may stun.",
+      "triggers": [
+        {
+          "on": "OnStatusApplied",
+          "condition": {
+            "type": "All",
+            "all": [
+              { "type": "AppliedStatusIs", "status": "Break" }
+            ]
+          },
+          "effects": [
+            {
+              "type": "ConditionalApplyStatus",
+              "condition": {
+                "type": "TargetHasStatus",
+                "status": "Freeze"
+              },
+              "status": "Stun",
+              "chance": 0.5,
+              "duration": 1.5,
+              "stacks": 1,
+              "power": 1.0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

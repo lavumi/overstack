@@ -1,0 +1,18 @@
+{
+  "enemies": [
+    {
+      "id": "rogue_drone",
+      "name": "Rogue Drone",
+      "max_hp": 84.0,
+      "atk": 11,
+      "spd": 28.0
+    },
+    {
+      "id": "overstack_core",
+      "name": "Overstack Core",
+      "max_hp": 220.0,
+      "atk": 14,
+      "spd": 32.0
+    }
+  ]
+}

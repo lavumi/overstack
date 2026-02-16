@@ -8,6 +8,11 @@ Rust + `wasm-pack` 기반 WASM 코어와 브라우저 정적 페이지 기본 �
 .
 ├── core
 │   ├── Cargo.toml
+│   ├── data
+│   │   ├── enemies.json
+│   │   ├── skills.json
+│   │   ├── traits.json
+│   │   └── schema.md
 │   └── src
 │       ├── battle.rs
 │       ├── event.rs
@@ -26,6 +31,8 @@ Rust + `wasm-pack` 기반 WASM 코어와 브라우저 정적 페이지 기본 �
 
 - `core`: WebAssembly로 빌드되는 Rust 라이브러리
 - `site`: 브라우저에서 WASM을 불러 실행하는 정적 페이지
+
+데이터 파일(`core/data/*.json`)은 런타임 fetch 없이 `include_str!`로 WASM 빌드 시점에 임베딩됩니다.
 
 ## Exported API
 
@@ -165,3 +172,18 @@ for (const eventJson of events) {
 4. 매 루프마다 `get_snapshot(handle)`로 HUD 상태 갱신
 5. `StepResult.ended` 또는 `snapshot.run_state === \"ended\"`면 종료
 6. 필요 시 `reset_run(handle)` 또는 `destroy_run(handle)` 호출
+
+## 데이터 추가/수정 방법 (Skill/Trait/Enemy)
+
+1. `core/data/skills.json`, `core/data/traits.json`, `core/data/enemies.json` 수정
+2. 필드/타입 규칙은 `core/data/schema.md` 참고
+3. 빌드:
+
+```bash
+cd core
+wasm-pack build --target web --out-dir ../site/pkg
+```
+
+4. `site` 실행 후 스킬 버튼 이름/로그 동작 확인
+
+데이터 검증 실패(중복 id, 범위 오류, 알 수 없는 type/status 등)가 있으면 `step` 결과의 `error`에 `data_load_failed: ...` 형태로 표시됩니다.

@@ -27,7 +27,6 @@ impl StatusType {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Clone, Copy, Debug)]
 pub enum Condition {
     Always,
@@ -41,14 +40,12 @@ pub enum Condition {
     All(&'static [Condition]),
 }
 
-#[allow(dead_code)]
 #[derive(Clone, Copy, Debug)]
 pub enum StatType {
     Attack,
     Speed,
 }
 
-#[allow(dead_code)]
 #[derive(Clone, Copy, Debug)]
 pub enum EffectTarget {
     Src,
@@ -57,7 +54,6 @@ pub enum EffectTarget {
     Enemy,
 }
 
-#[allow(dead_code)]
 #[derive(Clone, Copy, Debug)]
 pub enum EffectSpec {
     DealDamage {
@@ -109,151 +105,57 @@ pub enum EffectSpec {
     },
 }
 
-#[allow(dead_code)]
 #[derive(Clone, Copy, Debug)]
 pub struct SkillSpec {
     pub id: SkillId,
     pub name: &'static str,
+    pub description: &'static str,
     pub base_damage_multiplier: f32,
     pub flat_bonus_damage: Option<f32>,
     pub effects: &'static [EffectSpec],
     pub tags: &'static [&'static str],
 }
 
-const BASIC_ATTACK_EFFECTS: [EffectSpec; 1] = [EffectSpec::DealDamage {
-    multiplier: 1.0,
-    flat: 0.0,
-}];
-
-const EMBER_LASH_EFFECTS: [EffectSpec; 2] = [
-    EffectSpec::DealDamage {
-        multiplier: 1.0,
-        flat: 0.0,
-    },
-    EffectSpec::ApplyStatus {
-        status_type: StatusType::Burn,
-        base_chance: 0.35,
-        duration: 4.0,
-        stacks: 1,
-        power: 1.0,
-    },
-];
-
-const FROST_BITE_EFFECTS: [EffectSpec; 2] = [
-    EffectSpec::DealDamage {
-        multiplier: 0.9,
-        flat: 0.0,
-    },
-    EffectSpec::ApplyStatus {
-        status_type: StatusType::Freeze,
-        base_chance: 0.30,
-        duration: 3.5,
-        stacks: 1,
-        power: 1.0,
-    },
-];
-
-const ARC_JOLT_EFFECTS: [EffectSpec; 2] = [
-    EffectSpec::DealDamage {
-        multiplier: 0.8,
-        flat: 0.0,
-    },
-    EffectSpec::ApplyStatus {
-        status_type: StatusType::Shock,
-        base_chance: 0.40,
-        duration: 4.0,
-        stacks: 1,
-        power: 1.0,
-    },
-];
-
-const RUIN_STRIKE_EFFECTS: [EffectSpec; 2] = [
-    EffectSpec::DealDamage {
-        multiplier: 1.1,
-        flat: 0.0,
-    },
-    EffectSpec::ApplyStatus {
-        status_type: StatusType::Break,
-        base_chance: 0.35,
-        duration: 6.0,
-        stacks: 1,
-        power: 1.0,
-    },
-];
-
-pub const BASIC_ATTACK: SkillSpec = SkillSpec {
-    id: "basic_attack",
-    name: "Basic Attack",
-    base_damage_multiplier: 1.0,
-    flat_bonus_damage: None,
-    effects: &BASIC_ATTACK_EFFECTS,
-    tags: &["basic", "physical"],
-};
-
-pub const EMBER_LASH: SkillSpec = SkillSpec {
-    id: "ember_lash",
-    name: "Ember Lash",
-    base_damage_multiplier: 1.0,
-    flat_bonus_damage: None,
-    effects: &EMBER_LASH_EFFECTS,
-    tags: &["skill", "fire"],
-};
-
-pub const FROST_BITE: SkillSpec = SkillSpec {
-    id: "frost_bite",
-    name: "Frost Bite",
-    base_damage_multiplier: 1.0,
-    flat_bonus_damage: None,
-    effects: &FROST_BITE_EFFECTS,
-    tags: &["skill", "ice"],
-};
-
-pub const ARC_JOLT: SkillSpec = SkillSpec {
-    id: "arc_jolt",
-    name: "Arc Jolt",
-    base_damage_multiplier: 1.0,
-    flat_bonus_damage: None,
-    effects: &ARC_JOLT_EFFECTS,
-    tags: &["skill", "lightning"],
-};
-
-pub const RUIN_STRIKE: SkillSpec = SkillSpec {
-    id: "ruin_strike",
-    name: "Ruin Strike",
-    base_damage_multiplier: 1.0,
-    flat_bonus_damage: None,
-    effects: &RUIN_STRIKE_EFFECTS,
-    tags: &["skill", "debuff"],
-};
-
-pub const PLAYER_SLOT_SKILL_IDS: [SkillId; 4] = [
-    EMBER_LASH.id,
-    FROST_BITE.id,
-    ARC_JOLT.id,
-    RUIN_STRIKE.id,
-];
-
-pub fn skill_by_id(id: SkillId) -> Option<&'static SkillSpec> {
-    match id {
-        "basic_attack" => Some(&BASIC_ATTACK),
-        "ember_lash" => Some(&EMBER_LASH),
-        "frost_bite" => Some(&FROST_BITE),
-        "arc_jolt" => Some(&ARC_JOLT),
-        "ruin_strike" => Some(&RUIN_STRIKE),
-        _ => None,
-    }
+pub fn skill_by_id(id: &str) -> Option<&'static SkillSpec> {
+    crate::game_data::load_embedded_game_data()
+        .ok()
+        .and_then(|d| d.skills.get(id).copied())
 }
 
 pub fn player_skill_for_slot(slot: u32) -> &'static SkillSpec {
-    let idx = (slot as usize).min(PLAYER_SLOT_SKILL_IDS.len() - 1);
-    let id = PLAYER_SLOT_SKILL_IDS[idx];
-    skill_by_id(id).unwrap_or(&BASIC_ATTACK)
+    if let Ok(data) = crate::game_data::load_embedded_game_data() {
+        let idx = (slot as usize).min(data.player_loadout.len().saturating_sub(1));
+        let id = data.player_loadout[idx];
+        if let Some(spec) = data.skills.get(id) {
+            return spec;
+        }
+    }
+
+    skill_by_id("basic_attack").unwrap_or_else(|| {
+        // This fallback is only reached when embedded data loading failed.
+        static EMPTY_EFFECTS: [EffectSpec; 0] = [];
+        static EMPTY_TAGS: [&str; 0] = [];
+        static FALLBACK: SkillSpec = SkillSpec {
+            id: "basic_attack",
+            name: "Basic Attack",
+            description: "Fallback basic attack",
+            base_damage_multiplier: 1.0,
+            flat_bonus_damage: Some(0.0),
+            effects: &EMPTY_EFFECTS,
+            tags: &EMPTY_TAGS,
+        };
+        &FALLBACK
+    })
 }
 
 pub fn player_skill_names() -> Vec<String> {
-    PLAYER_SLOT_SKILL_IDS
-        .iter()
-        .filter_map(|id| skill_by_id(*id))
-        .map(|spec| spec.name.to_string())
-        .collect()
+    if let Ok(data) = crate::game_data::load_embedded_game_data() {
+        return data
+            .player_loadout
+            .iter()
+            .filter_map(|id| data.skills.get(id))
+            .map(|spec| spec.name.to_string())
+            .collect();
+    }
+    Vec::new()
 }

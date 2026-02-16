@@ -1,6 +1,7 @@
 mod battle;
 mod engine;
 mod event;
+mod game_data;
 mod log;
 mod model;
 mod rng;

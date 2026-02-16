@@ -1,14 +1,15 @@
 use crate::event::Event;
+use crate::game_data::load_embedded_game_data;
 use crate::log::{push_event, set_log_tick};
 use crate::model::Team;
-use crate::skill::{player_skill_for_slot, skill_by_id, EffectSpec, SkillSpec, StatType, StatusType, BASIC_ATTACK};
+use crate::skill::{player_skill_for_slot, skill_by_id, EffectSpec, SkillSpec, StatType, StatusType};
 use crate::step_api::{ActionKind, ActiveRun, StepResult, TriggerContext};
 use crate::trait_spec::TriggerType;
 
 impl ActiveRun {
     fn choose_skill_for_action(&self, action: ActionKind) -> &'static SkillSpec {
         match action {
-            ActionKind::BasicAttack => &BASIC_ATTACK,
+            ActionKind::BasicAttack => skill_by_id("basic_attack").unwrap_or_else(|| player_skill_for_slot(0)),
             ActionKind::SkillSlot(slot) => player_skill_for_slot(slot),
         }
     }
@@ -217,7 +218,7 @@ impl ActiveRun {
         let skill = if actor_team == Team::Player {
             self.choose_skill_for_action(action)
         } else {
-            skill_by_id("basic_attack").unwrap_or(&BASIC_ATTACK)
+            skill_by_id("basic_attack").unwrap_or_else(|| player_skill_for_slot(0))
         };
 
         self.execute_skill(actor_idx, target_idx, skill, events);
@@ -227,6 +228,15 @@ impl ActiveRun {
     pub(crate) fn step_once(&mut self, dt: f32, action: Option<ActionKind>) -> StepResult {
         let mut events = Vec::new();
         set_log_tick(self.sim_tick());
+
+        if let Err(errors) = load_embedded_game_data() {
+            return StepResult {
+                events,
+                need_input: false,
+                ended: true,
+                error: format!("data_load_failed: {}", errors.join(" | ")),
+            };
+        }
 
         if self.ended {
             return StepResult {

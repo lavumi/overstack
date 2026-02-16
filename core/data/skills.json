@@ -1,0 +1,92 @@
+{
+  "player_loadout": ["ember_lash", "frost_bite", "arc_jolt", "ruin_strike"],
+  "skills": [
+    {
+      "id": "basic_attack",
+      "name": "Basic Attack",
+      "description": "A reliable basic strike.",
+      "base_damage_multiplier": 1.0,
+      "flat_bonus_damage": 0.0,
+      "effects": [
+        { "type": "DealDamage", "multiplier": 1.0, "flat": 0.0 }
+      ],
+      "tags": ["basic", "physical"]
+    },
+    {
+      "id": "ember_lash",
+      "name": "Ember Lash",
+      "description": "Deals damage and attempts to apply Burn.",
+      "base_damage_multiplier": 1.0,
+      "flat_bonus_damage": 0.0,
+      "effects": [
+        { "type": "DealDamage", "multiplier": 1.0, "flat": 0.0 },
+        {
+          "type": "ApplyStatus",
+          "status": "Burn",
+          "chance": 0.35,
+          "duration": 4.0,
+          "stacks": 1,
+          "power": 1.0
+        }
+      ],
+      "tags": ["skill", "fire"]
+    },
+    {
+      "id": "frost_bite",
+      "name": "Frost Bite",
+      "description": "Deals damage and attempts to apply Freeze.",
+      "base_damage_multiplier": 1.0,
+      "flat_bonus_damage": 0.0,
+      "effects": [
+        { "type": "DealDamage", "multiplier": 0.9, "flat": 0.0 },
+        {
+          "type": "ApplyStatus",
+          "status": "Freeze",
+          "chance": 0.30,
+          "duration": 3.5,
+          "stacks": 1,
+          "power": 1.0
+        }
+      ],
+      "tags": ["skill", "ice"]
+    },
+    {
+      "id": "arc_jolt",
+      "name": "Arc Jolt",
+      "description": "Deals damage and attempts to apply Shock.",
+      "base_damage_multiplier": 1.0,
+      "flat_bonus_damage": 0.0,
+      "effects": [
+        { "type": "DealDamage", "multiplier": 0.8, "flat": 0.0 },
+        {
+          "type": "ApplyStatus",
+          "status": "Shock",
+          "chance": 0.40,
+          "duration": 4.0,
+          "stacks": 1,
+          "power": 1.0
+        }
+      ],
+      "tags": ["skill", "lightning"]
+    },
+    {
+      "id": "ruin_strike",
+      "name": "Ruin Strike",
+      "description": "Deals damage and attempts to apply Break.",
+      "base_damage_multiplier": 1.0,
+      "flat_bonus_damage": 0.0,
+      "effects": [
+        { "type": "DealDamage", "multiplier": 1.1, "flat": 0.0 },
+        {
+          "type": "ApplyStatus",
+          "status": "Break",
+          "chance": 0.35,
+          "duration": 6.0,
+          "stacks": 1,
+          "power": 1.0
+        }
+      ],
+      "tags": ["skill", "debuff"]
+    }
+  ]
+}

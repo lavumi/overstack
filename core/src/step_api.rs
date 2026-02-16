@@ -4,6 +4,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::battle::create_battle;
 use crate::event::Event;
+use crate::game_data::enemy_by_id;
 use crate::log::push_event;
 use crate::model::{BattleState, NodeType, RunState};
 use crate::skill::{player_skill_names, StatusType};
@@ -230,34 +231,25 @@ impl ActiveRun {
         );
 
         self.battle_index += 1;
-        let (battle_state, enemy_name) = match node_type {
-            NodeType::Boss => (
-                create_battle(
-                    self.run.player_hp,
-                    self.run.player_max_hp,
-                    self.run.player_atk,
-                    self.run.player_speed,
-                    1,
-                    220.0,
-                    14,
-                    32.0,
-                ),
-                "Overstack Core",
-            ),
-            _ => (
-                create_battle(
-                    self.run.player_hp,
-                    self.run.player_max_hp,
-                    self.run.player_atk,
-                    self.run.player_speed,
-                    1,
-                    84.0,
-                    11,
-                    28.0,
-                ),
-                "Rogue Drone",
-            ),
+        let (enemy_hp, enemy_atk, enemy_speed, enemy_name) = match node_type {
+            NodeType::Boss => enemy_by_id("overstack_core")
+                .map(|e| (e.max_hp, e.atk, e.speed, e.name))
+                .unwrap_or((220.0, 14, 32.0, "Overstack Core")),
+            _ => enemy_by_id("rogue_drone")
+                .map(|e| (e.max_hp, e.atk, e.speed, e.name))
+                .unwrap_or((84.0, 11, 28.0, "Rogue Drone")),
         };
+
+        let battle_state = create_battle(
+            self.run.player_hp,
+            self.run.player_max_hp,
+            self.run.player_atk,
+            self.run.player_speed,
+            1,
+            enemy_hp,
+            enemy_atk,
+            enemy_speed,
+        );
 
         self.current_battle = Some(ActiveBattle::new(battle_state));
 
