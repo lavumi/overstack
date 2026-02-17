@@ -1,6 +1,6 @@
 // wasm-pack output is loaded via relative path for GitHub Pages root compatibility.
 import init, {
-  create_run,
+  create_run_with_stats,
   destroy_run,
   get_player_skills,
   get_selectable_trait_ids,
@@ -56,18 +56,63 @@ const actionSkillButtons = [
   document.getElementById("actionSkill4"),
 ];
 
+const builderOverlay = document.getElementById("builderOverlay");
+const builderModeRandom = document.getElementById("builderModeRandom");
+const builderModeManual = document.getElementById("builderModeManual");
+const builderBudgetText = document.getElementById("builderBudgetText");
+const builderError = document.getElementById("builderError");
+const builderRandomBtn = document.getElementById("builderRandomBtn");
+const builderRerollBtn = document.getElementById("builderRerollBtn");
+const builderConfirmBtn = document.getElementById("builderConfirmBtn");
+const builderCancelBtn = document.getElementById("builderCancelBtn");
+
+const statInputs = {
+  max_hp: document.getElementById("statMaxHp"),
+  atk: document.getElementById("statAtk"),
+  matk: document.getElementById("statMatk"),
+  def: document.getElementById("statDef"),
+  mdef: document.getElementById("statMdef"),
+  speed: document.getElementById("statSpeed"),
+  crit_rate: document.getElementById("statCritRate"),
+  crit_mult: document.getElementById("statCritMult"),
+};
+
 const STEP_DT_BASE = 0.15;
 const LOOP_MS = 120;
 const MAX_NODES = 6;
 const MAX_LOG_LINES = 2000;
 const CRIT_C = 100;
+const STAT_BUDGET = 100;
+
+const DEFAULT_BUILDER_STATS = {
+  max_hp: 130,
+  atk: 30,
+  matk: 25,
+  def: 20,
+  mdef: 15,
+  speed: 1.0,
+  crit_rate: 50,
+  crit_mult: 1.5,
+};
+
+const STAT_RANGES = {
+  max_hp: [80, 200],
+  atk: [10, 60],
+  matk: [10, 60],
+  def: [-20, 80],
+  mdef: [0, 80],
+  speed: [0.6, 2.0],
+  crit_rate: [0, 300],
+  crit_mult: [1.25, 2.5],
+};
 
 let currentHandle = null;
 let loopTimer = null;
 let logLines = [];
-let uiMode = "idle"; // idle | trait_select | running | need_input | ended
+let uiMode = "idle"; // idle | builder | trait_select | running | need_input | ended
 let selectableTraitIds = [];
 let lastEnemyName = "Enemy";
+let builderMode = "random";
 
 function stopLoop() {
   if (loopTimer !== null) {
@@ -169,6 +214,13 @@ function resetStatus() {
   lastEnemyName = "Enemy";
 }
 
+function closeBuilder() {
+  builderOverlay.classList.add("hidden");
+  if (uiMode === "builder") {
+    uiMode = "idle";
+  }
+}
+
 function resetAll() {
   logLines = [];
   logEl.textContent = "";
@@ -177,7 +229,16 @@ function resetAll() {
   setActionButtonsEnabled(false);
   setInputPrompt("");
   selectableTraitIds = [];
+  closeBuilder();
   uiMode = "idle";
+}
+
+function parseEvent(line) {
+  try {
+    return JSON.parse(line);
+  } catch (error) {
+    return { kind: "InvalidJSON", raw: line, error: String(error) };
+  }
 }
 
 function formatEventLine(event) {
@@ -210,14 +271,6 @@ function formatEventLine(event) {
       return `[TraitEffectApplied] ${event.trait_name}: ${event.effect_summary}`;
     default:
       return `[UnknownEvent] ${JSON.stringify(event)}`;
-  }
-}
-
-function parseEvent(line) {
-  try {
-    return JSON.parse(line);
-  } catch (error) {
-    return { kind: "InvalidJSON", raw: line, error: String(error) };
   }
 }
 
@@ -377,7 +430,126 @@ function startLoop() {
   }
 }
 
-function startRun() {
+function toNumber(inputEl, fallback = 0) {
+  const v = Number.parseFloat(inputEl.value);
+  return Number.isFinite(v) ? v : fallback;
+}
+
+function readBuilderStats() {
+  return {
+    max_hp: toNumber(statInputs.max_hp, DEFAULT_BUILDER_STATS.max_hp),
+    atk: Math.round(toNumber(statInputs.atk, DEFAULT_BUILDER_STATS.atk)),
+    matk: Math.round(toNumber(statInputs.matk, DEFAULT_BUILDER_STATS.matk)),
+    def: Math.round(toNumber(statInputs.def, DEFAULT_BUILDER_STATS.def)),
+    mdef: Math.round(toNumber(statInputs.mdef, DEFAULT_BUILDER_STATS.mdef)),
+    speed: toNumber(statInputs.speed, DEFAULT_BUILDER_STATS.speed),
+    crit_rate: toNumber(statInputs.crit_rate, DEFAULT_BUILDER_STATS.crit_rate),
+    crit_mult: toNumber(statInputs.crit_mult, DEFAULT_BUILDER_STATS.crit_mult),
+  };
+}
+
+function writeBuilderStats(stats) {
+  statInputs.max_hp.value = String(stats.max_hp);
+  statInputs.atk.value = String(stats.atk);
+  statInputs.matk.value = String(stats.matk);
+  statInputs.def.value = String(stats.def);
+  statInputs.mdef.value = String(stats.mdef);
+  statInputs.speed.value = String(stats.speed.toFixed(2));
+  statInputs.crit_rate.value = String(stats.crit_rate.toFixed(1));
+  statInputs.crit_mult.value = String(stats.crit_mult.toFixed(2));
+  refreshBudgetText(stats);
+}
+
+function setBuilderMode(mode) {
+  builderMode = mode;
+  const editable = mode === "manual";
+  Object.values(statInputs).forEach((el) => {
+    el.readOnly = !editable;
+  });
+}
+
+function calcTotalCost(stats) {
+  const hp_cost = Math.max(0, (stats.max_hp - 100) / 5);
+  const atk_cost = stats.atk * 1.0;
+  const matk_cost = stats.matk * 1.0;
+  const def_cost = Math.max(0, stats.def) * 0.8;
+  const mdef_cost = stats.mdef * 0.8;
+  const speed_cost = Math.max(0, stats.speed - 1.0) * 60;
+  const crit_rate_cost = stats.crit_rate / 10;
+  const crit_mult_cost = Math.max(0, stats.crit_mult - 1.5) * 40;
+  return hp_cost + atk_cost + matk_cost + def_cost + mdef_cost + speed_cost + crit_rate_cost + crit_mult_cost;
+}
+
+function refreshBudgetText(stats = readBuilderStats()) {
+  const total = calcTotalCost(stats);
+  builderBudgetText.textContent = `${total.toFixed(1)} / ${STAT_BUDGET.toFixed(1)}`;
+}
+
+function generateRandomStats() {
+  const stats = { ...DEFAULT_BUILDER_STATS };
+  let guard = 0;
+  while (calcTotalCost(stats) < STAT_BUDGET && guard < 2000) {
+    guard += 1;
+    const roll = Math.random();
+    const candidate = { ...stats };
+
+    if (roll < 0.2) candidate.max_hp += 5;
+    else if (roll < 0.4) candidate.atk += 1;
+    else if (roll < 0.6) candidate.matk += 1;
+    else if (roll < 0.72) candidate.def += 1;
+    else if (roll < 0.84) candidate.mdef += 1;
+    else if (roll < 0.92) candidate.crit_rate += 5;
+    else if (roll < 0.97) candidate.speed += 0.05;
+    else candidate.crit_mult += 0.05;
+
+    if (candidate.max_hp > STAT_RANGES.max_hp[1]) continue;
+    if (candidate.atk > STAT_RANGES.atk[1]) continue;
+    if (candidate.matk > STAT_RANGES.matk[1]) continue;
+    if (candidate.def > STAT_RANGES.def[1]) continue;
+    if (candidate.mdef > STAT_RANGES.mdef[1]) continue;
+    if (candidate.speed > STAT_RANGES.speed[1]) continue;
+    if (candidate.crit_rate > STAT_RANGES.crit_rate[1]) continue;
+    if (candidate.crit_mult > STAT_RANGES.crit_mult[1]) continue;
+
+    if (calcTotalCost(candidate) <= STAT_BUDGET) {
+      Object.assign(stats, candidate);
+    }
+  }
+
+  stats.speed = Number(stats.speed.toFixed(2));
+  stats.crit_rate = Number(stats.crit_rate.toFixed(1));
+  stats.crit_mult = Number(stats.crit_mult.toFixed(2));
+  return stats;
+}
+
+function validateStatsForConfirm(stats) {
+  const errors = [];
+  for (const [key, [min, max]] of Object.entries(STAT_RANGES)) {
+    const value = stats[key];
+    if (!Number.isFinite(value) || value < min || value > max) {
+      errors.push(`${key} must be in ${min}..${max}`);
+    }
+  }
+
+  const totalCost = calcTotalCost(stats);
+  if (totalCost > STAT_BUDGET) {
+    errors.push(`Budget exceeded: ${totalCost.toFixed(1)} / ${STAT_BUDGET.toFixed(1)}`);
+  }
+
+  return { ok: errors.length === 0, errors, totalCost };
+}
+
+function openBuilder() {
+  builderOverlay.classList.remove("hidden");
+  builderError.textContent = "";
+  builderModeRandom.checked = true;
+  builderModeManual.checked = false;
+  setBuilderMode("random");
+  writeBuilderStats(generateRandomStats());
+  uiMode = "builder";
+}
+
+function startRunWithStats(stats) {
   stopLoop();
 
   if (currentHandle !== null) {
@@ -389,7 +561,18 @@ function startRun() {
 
   const seed = Number.parseInt(seedInput.value, 10);
   const safeSeed = Number.isNaN(seed) ? 1234 : seed;
-  currentHandle = create_run(safeSeed, MAX_NODES);
+  currentHandle = create_run_with_stats(
+    safeSeed,
+    MAX_NODES,
+    stats.max_hp,
+    stats.atk,
+    stats.matk,
+    stats.def,
+    stats.mdef,
+    stats.speed,
+    stats.crit_rate,
+    stats.crit_mult,
+  );
 
   const traitNames = get_selectable_trait_names();
   selectableTraitIds = get_selectable_trait_ids();
@@ -467,7 +650,10 @@ actionSkillButtons.forEach((button, idx) => {
 });
 
 startBtn.addEventListener("click", () => {
-  startRun();
+  if (bootStatus.textContent !== "WASM ready") {
+    return;
+  }
+  openBuilder();
 });
 
 resetBtn.addEventListener("click", () => {
@@ -478,6 +664,56 @@ resetBtn.addEventListener("click", () => {
     currentHandle = null;
   }
   resetAll();
+});
+
+builderModeRandom.addEventListener("change", () => {
+  if (!builderModeRandom.checked) return;
+  setBuilderMode("random");
+  writeBuilderStats(generateRandomStats());
+  builderError.textContent = "";
+});
+
+builderModeManual.addEventListener("change", () => {
+  if (!builderModeManual.checked) return;
+  setBuilderMode("manual");
+  builderError.textContent = "";
+  refreshBudgetText();
+});
+
+builderRandomBtn.addEventListener("click", () => {
+  writeBuilderStats(generateRandomStats());
+  builderError.textContent = "";
+});
+
+builderRerollBtn.addEventListener("click", () => {
+  writeBuilderStats(generateRandomStats());
+  builderError.textContent = "";
+});
+
+Object.values(statInputs).forEach((el) => {
+  el.addEventListener("input", () => {
+    refreshBudgetText();
+  });
+});
+
+builderConfirmBtn.addEventListener("click", () => {
+  const stats = readBuilderStats();
+  const checked = validateStatsForConfirm(stats);
+  builderBudgetText.textContent = `${checked.totalCost.toFixed(1)} / ${STAT_BUDGET.toFixed(1)}`;
+
+  if (!checked.ok) {
+    builderError.textContent = checked.errors.join(" | ");
+    return;
+  }
+
+  builderError.textContent = "";
+  closeBuilder();
+  startRunWithStats(stats);
+});
+
+builderCancelBtn.addEventListener("click", () => {
+  closeBuilder();
+  setArenaStatus("Ready");
 });
 
 async function boot() {

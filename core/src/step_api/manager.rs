@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 
 use super::ActiveRun;
+use crate::model::PlayerInitStats;
 
 #[derive(Default)]
 struct RunManager {
@@ -15,6 +16,16 @@ impl RunManager {
         let handle = self.next_handle;
         self.runs
             .insert(handle, ActiveRun::new(seed as u64, max_nodes));
+        handle
+    }
+
+    fn create_run_with_stats(&mut self, seed: u32, max_nodes: u32, stats: PlayerInitStats) -> u32 {
+        self.next_handle = self.next_handle.saturating_add(1).max(1);
+        let handle = self.next_handle;
+        self.runs.insert(
+            handle,
+            ActiveRun::new_with_stats(seed as u64, max_nodes, Some(stats)),
+        );
         handle
     }
 
@@ -38,6 +49,14 @@ thread_local! {
 
 pub(super) fn create_run(seed: u32, max_nodes: u32) -> u32 {
     MANAGER.with(|manager| manager.borrow_mut().create_run(seed, max_nodes))
+}
+
+pub(super) fn create_run_with_stats(seed: u32, max_nodes: u32, stats: PlayerInitStats) -> u32 {
+    MANAGER.with(|manager| {
+        manager
+            .borrow_mut()
+            .create_run_with_stats(seed, max_nodes, stats)
+    })
 }
 
 pub(super) fn destroy_run(handle: u32) {

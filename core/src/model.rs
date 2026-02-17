@@ -67,24 +67,64 @@ pub struct RunState {
     pub player_speed: f32,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct PlayerInitStats {
+    pub max_hp: f32,
+    pub atk: i32,
+    pub matk: i32,
+    pub def: i32,
+    pub mdef: i32,
+    pub speed: f32,
+    pub crit_rate: f32,
+    pub crit_mult: f32,
+}
+
+impl PlayerInitStats {
+    pub fn default_run() -> Self {
+        Self {
+            max_hp: 140.0,
+            atk: 17,
+            matk: 17,
+            def: 10,
+            mdef: 10,
+            speed: 35.0,
+            crit_rate: 15.0,
+            crit_mult: 1.5,
+        }
+    }
+}
+
 impl RunState {
     pub fn new(seed: u64) -> Self {
+        let stats = PlayerInitStats::default_run();
         Self {
             seed,
             rng: crate::rng::SimpleRng::new(seed),
             floor: 1,
             stage: 0,
             meta_placeholder: 0,
-            player_hp: 140.0,
-            player_max_hp: 140.0,
-            player_atk: 17,
-            player_matk: 17,
-            player_def: 10,
-            player_mdef: 10,
-            player_crit_rate: 15.0,
-            player_crit_mult: 1.5,
-            player_speed: 35.0,
+            player_hp: stats.max_hp,
+            player_max_hp: stats.max_hp,
+            player_atk: stats.atk,
+            player_matk: stats.matk,
+            player_def: stats.def,
+            player_mdef: stats.mdef,
+            player_crit_rate: stats.crit_rate,
+            player_crit_mult: stats.crit_mult,
+            player_speed: stats.speed,
         }
+    }
+
+    pub fn apply_player_stats(&mut self, stats: PlayerInitStats) {
+        self.player_max_hp = stats.max_hp;
+        self.player_hp = stats.max_hp;
+        self.player_atk = stats.atk;
+        self.player_matk = stats.matk;
+        self.player_def = stats.def;
+        self.player_mdef = stats.mdef;
+        self.player_speed = stats.speed;
+        self.player_crit_rate = stats.crit_rate;
+        self.player_crit_mult = stats.crit_mult;
     }
 }
 

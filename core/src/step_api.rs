@@ -6,7 +6,7 @@ use crate::battle::create_battle;
 use crate::data::{load_embedded_game_data, ErrorReport, GameData};
 use crate::event::Event;
 use crate::log::push_event;
-use crate::model::{BattleState, NodeType, RunState};
+use crate::model::{BattleState, NodeType, PlayerInitStats, RunState};
 use crate::skill::{player_skill_names, StatusType};
 use crate::trait_spec::{
     active_trait_names, selectable_trait_ids, selectable_trait_names, trait_by_id, TraitId, TriggerType,
@@ -169,15 +169,24 @@ pub(crate) struct ActiveRun {
 
 impl ActiveRun {
     pub(crate) fn new(seed: u64, max_nodes: u32) -> Self {
+        Self::new_with_stats(seed, max_nodes, None)
+    }
+
+    pub(crate) fn new_with_stats(seed: u64, max_nodes: u32, player_stats: Option<PlayerInitStats>) -> Self {
         let (game_data, data_error) = match load_embedded_game_data() {
             Ok(data) => (Some(data), None),
             Err(err) => (None, Some(err)),
         };
 
+        let mut run = RunState::new(seed);
+        if let Some(stats) = player_stats {
+            run.apply_player_stats(stats);
+        }
+
         Self {
             seed,
             max_nodes: max_nodes.min(6),
-            run: RunState::new(seed),
+            run,
             planned_nodes: [
                 NodeType::Battle,
                 NodeType::Battle,
@@ -350,6 +359,32 @@ impl ActiveRun {
 #[wasm_bindgen]
 pub fn create_run(seed: u32, max_nodes: u32) -> u32 {
     manager::create_run(seed, max_nodes)
+}
+
+#[wasm_bindgen]
+pub fn create_run_with_stats(
+    seed: u32,
+    max_nodes: u32,
+    max_hp: f32,
+    atk: i32,
+    matk: i32,
+    def: i32,
+    mdef: i32,
+    speed: f32,
+    crit_rate: f32,
+    crit_mult: f32,
+) -> u32 {
+    let stats = PlayerInitStats {
+        max_hp,
+        atk,
+        matk,
+        def,
+        mdef,
+        speed,
+        crit_rate,
+        crit_mult,
+    };
+    manager::create_run_with_stats(seed, max_nodes, stats)
 }
 
 #[wasm_bindgen]
