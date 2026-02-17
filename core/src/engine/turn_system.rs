@@ -1,8 +1,8 @@
 use crate::event::Event;
 use crate::log::{push_event, set_log_tick};
 use crate::model::Team;
-use crate::skill::{player_skill_for_slot, skill_by_id, EffectSpec, SkillSpec, StatType, StatusType};
-use crate::step_api::{ActionKind, ActiveRun, StepResult, TriggerContext};
+use crate::skill::{player_skill_for_slot, skill_by_id, DamageKind, EffectSpec, SkillSpec, StatType, StatusType};
+use crate::step_api::{ActionKind, ActiveRun, StepResult, TraitOwner, TriggerContext};
 use crate::trait_spec::TriggerType;
 
 impl ActiveRun {
@@ -21,6 +21,11 @@ impl ActiveRun {
         events: &mut Vec<String>,
     ) {
         let actor = self.actor_label_for_idx(actor_idx);
+        let owner = if actor == "player" {
+            TraitOwner::Player
+        } else {
+            TraitOwner::Enemy
+        };
 
         push_event(events, Event::TurnReady { actor });
         push_event(
@@ -33,6 +38,7 @@ impl ActiveRun {
 
         let context_action = TriggerContext {
             trigger_type: TriggerType::OnActionUsed,
+            owner,
             src_idx: Some(actor_idx),
             dst_idx: Some(target_idx),
             applied_status: None,
@@ -43,15 +49,26 @@ impl ActiveRun {
 
         for effect in skill.effects {
             match *effect {
-                EffectSpec::DealDamage { multiplier, flat } => {
-                    let atk = self
-                        .state_ref()
-                        .map(|s| s.units[actor_idx].atk as f32)
-                        .unwrap_or(1.0);
-                    let base = atk * skill.base_damage_multiplier * multiplier * damage_amp;
-                    let bonus = skill.flat_bonus_damage.unwrap_or(0.0) + flat;
-                    let amount = (base + bonus).max(0.01);
-                    self.apply_damage(actor_idx, target_idx, amount, 0, events);
+                EffectSpec::DealDamage {
+                    damage_kind,
+                    multiplier,
+                    flat,
+                } => {
+                    let final_multiplier = skill.base_damage_multiplier * multiplier * damage_amp;
+                    let final_flat = skill.flat_bonus_damage.unwrap_or(0.0) + flat;
+                    let kind = match skill.id {
+                        "basic_attack" => DamageKind::Physical,
+                        _ => damage_kind,
+                    };
+                    self.apply_scaled_damage(
+                        actor_idx,
+                        target_idx,
+                        kind,
+                        final_multiplier,
+                        final_flat,
+                        0,
+                        events,
+                    );
                 }
                 EffectSpec::ApplyStatus {
                     status_type,
@@ -75,6 +92,7 @@ impl ActiveRun {
                 EffectSpec::ConditionalDamageAmp { condition, amp } => {
                     let context = TriggerContext {
                         trigger_type: TriggerType::OnActionUsed,
+                        owner,
                         src_idx: Some(actor_idx),
                         dst_idx: Some(target_idx),
                         applied_status: None,
@@ -93,6 +111,7 @@ impl ActiveRun {
                 } => {
                     let context = TriggerContext {
                         trigger_type: TriggerType::OnActionUsed,
+                        owner,
                         src_idx: Some(actor_idx),
                         dst_idx: Some(target_idx),
                         applied_status: None,
@@ -150,6 +169,7 @@ impl ActiveRun {
                         target,
                         TriggerContext {
                             trigger_type: TriggerType::OnActionUsed,
+                            owner,
                             src_idx: Some(actor_idx),
                             dst_idx: Some(target_idx),
                             applied_status: None,
@@ -173,12 +193,13 @@ impl ActiveRun {
                         target,
                         TriggerContext {
                             trigger_type: TriggerType::OnActionUsed,
+                            owner,
                             src_idx: Some(actor_idx),
                             dst_idx: Some(target_idx),
                             applied_status: None,
                         },
                     ) {
-                        self.apply_damage(actor_idx, dst_idx, amount.max(0.01), 0, events);
+                        self.apply_pure_damage(actor_idx, dst_idx, amount.max(0.01), 0, events);
                     }
                 }
             }

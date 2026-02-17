@@ -1,8 +1,9 @@
+use crate::combat_math::{compute_damage, crit_chance, BREAK_MAX_STACKS};
 use crate::event::Event;
 use crate::log::push_event;
 use crate::model::Team;
-use crate::skill::StatusType;
-use crate::step_api::{hp2, ActiveRun, TriggerContext, STATUS_TICK_RATE, STATUS_TICK_THRESHOLD};
+use crate::skill::{DamageKind, StatusType};
+use crate::step_api::{hp2, ActiveRun, TraitOwner, TriggerContext, STATUS_TICK_RATE, STATUS_TICK_THRESHOLD};
 use crate::trait_spec::TriggerType;
 
 impl ActiveRun {
@@ -34,14 +35,25 @@ impl ActiveRun {
         let adjusted_power = power * power_mul;
 
         if let Some(row) = self.statuses_mut(dst_idx) {
+            let added_stacks = stacks.max(1);
             if let Some(existing) = row.iter_mut().find(|s| s.status_type == status_type) {
-                existing.stacks = existing.stacks.saturating_add(stacks.max(1));
+                let merged = existing.stacks.saturating_add(added_stacks);
+                existing.stacks = if status_type == StatusType::Break {
+                    merged.min(BREAK_MAX_STACKS)
+                } else {
+                    merged
+                };
                 existing.duration = existing.duration.max(duration);
                 existing.power = existing.power.max(adjusted_power);
             } else {
+                let initial_stacks = if status_type == StatusType::Break {
+                    added_stacks.min(BREAK_MAX_STACKS)
+                } else {
+                    added_stacks
+                };
                 row.push(crate::step_api::ActiveStatus {
                     status_type,
-                    stacks: stacks.max(1),
+                    stacks: initial_stacks,
                     duration: duration.max(0.1),
                     power: adjusted_power,
                     tick_meter: 0.0,
@@ -62,6 +74,7 @@ impl ActiveRun {
 
         let context = TriggerContext {
             trigger_type: TriggerType::OnStatusApplied,
+            owner: TraitOwner::Player,
             src_idx: Some(src_idx),
             dst_idx: Some(dst_idx),
             applied_status: Some(status_type),
@@ -79,7 +92,53 @@ impl ActiveRun {
         }
     }
 
-    pub(crate) fn apply_damage(
+    pub(crate) fn apply_scaled_damage(
+        &mut self,
+        src_idx: usize,
+        dst_idx: usize,
+        damage_kind: DamageKind,
+        multiplier: f32,
+        flat: f32,
+        trait_depth: u8,
+        events: &mut Vec<String>,
+    ) {
+        let (src, dst) = {
+            let Some(state) = self.state_ref() else {
+                return;
+            };
+            let mut dst = state.units[dst_idx].clone();
+            if damage_kind == DamageKind::Physical {
+                dst.def = self.effective_def(dst_idx);
+            }
+            (state.units[src_idx].clone(), dst)
+        };
+        let crit = self.roll_success(crit_chance(src.crit_rate));
+        let breakdown = compute_damage(&src, &dst, damage_kind, multiplier, flat, crit);
+
+        let dst_hp_after = if let Some(state) = self.state_mut() {
+            let unit = &mut state.units[dst_idx];
+            unit.hp = hp2((unit.hp - breakdown.amount.max(0.01)).max(0.0));
+            unit.hp
+        } else {
+            return;
+        };
+
+        self.emit_damage_event(
+            src_idx,
+            dst_idx,
+            damage_kind,
+            breakdown.raw,
+            breakdown.defense_used,
+            breakdown.mitigation,
+            breakdown.crit,
+            breakdown.amount,
+            dst_hp_after,
+            trait_depth,
+            events,
+        );
+    }
+
+    pub(crate) fn apply_pure_damage(
         &mut self,
         src_idx: usize,
         dst_idx: usize,
@@ -87,22 +146,57 @@ impl ActiveRun {
         trait_depth: u8,
         events: &mut Vec<String>,
     ) {
+        let dealt = amount.max(0.01);
+        let dst_hp_after = if let Some(state) = self.state_mut() {
+            let unit = &mut state.units[dst_idx];
+            unit.hp = hp2((unit.hp - dealt).max(0.0));
+            unit.hp
+        } else {
+            return;
+        };
+
+        self.emit_damage_event(
+            src_idx,
+            dst_idx,
+            DamageKind::Physical,
+            dealt,
+            0,
+            1.0,
+            false,
+            dealt,
+            dst_hp_after,
+            trait_depth,
+            events,
+        );
+    }
+
+    fn emit_damage_event(
+        &mut self,
+        src_idx: usize,
+        dst_idx: usize,
+        damage_kind: DamageKind,
+        raw: f32,
+        defense_used: i32,
+        mitigation: f32,
+        crit: bool,
+        amount: f32,
+        dst_hp_after: f32,
+        trait_depth: u8,
+        events: &mut Vec<String>,
+    ) {
         let src_label = self.actor_label_for_idx(src_idx);
         let dst_label = self.actor_label_for_idx(dst_idx);
-
-        let mut dst_hp_after = 0.0;
-        if let Some(state) = self.state_mut() {
-            let unit = &mut state.units[dst_idx];
-            let dealt = amount.max(0.01);
-            unit.hp = hp2((unit.hp - dealt).max(0.0));
-            dst_hp_after = unit.hp;
-        }
 
         push_event(
             events,
             Event::DamageDealt {
                 src: src_label,
                 dst: dst_label,
+                damage_kind: damage_kind.as_str(),
+                raw,
+                defense_used,
+                mitigation,
+                crit,
                 amount: amount.max(0.01),
                 dst_hp_after,
             },
@@ -110,6 +204,7 @@ impl ActiveRun {
 
         let context = TriggerContext {
             trigger_type: TriggerType::OnDamageDealt,
+            owner: TraitOwner::Player,
             src_idx: Some(src_idx),
             dst_idx: Some(dst_idx),
             applied_status: None,
@@ -214,6 +309,7 @@ impl ActiveRun {
 
             let context = TriggerContext {
                 trigger_type: TriggerType::OnStatusTick,
+                owner: TraitOwner::Player,
                 src_idx: None,
                 dst_idx: Some(unit_idx),
                 applied_status: Some(status_type),

@@ -29,11 +29,30 @@ pub type SkillId = &'static str;
 pub type TraitId = &'static str;
 pub type EnemyId = &'static str;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DamageKind {
+    Physical,
+    Magical,
+}
+
+impl DamageKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            DamageKind::Physical => "Physical",
+            DamageKind::Magical => "Magical",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum Condition {
     Always,
     SrcIsPlayer,
     DstIsEnemy,
+    OwnerIsPlayer,
+    OwnerIsEnemy,
+    SrcIsOwner,
+    DstIsOwner,
     AppliedStatusIs(StatusType),
     RandomRollBelow(f32),
     TargetHPBelow(f32),
@@ -50,6 +69,8 @@ pub enum StatType {
 
 #[derive(Clone, Copy, Debug)]
 pub enum EffectTarget {
+    Owner,
+    Opponent,
     Src,
     Dst,
     Player,
@@ -59,6 +80,7 @@ pub enum EffectTarget {
 #[derive(Clone, Copy, Debug)]
 pub enum EffectSpec {
     DealDamage {
+        damage_kind: DamageKind,
         multiplier: f32,
         flat: f32,
     },
@@ -114,6 +136,7 @@ pub struct SkillSpec {
     pub description: &'static str,
     pub base_damage_multiplier: f32,
     pub flat_bonus_damage: Option<f32>,
+    pub damage_kind: DamageKind,
     pub effects: &'static [EffectSpec],
     pub tags: &'static [&'static str],
 }
@@ -155,6 +178,7 @@ pub struct TraitSpec {
     pub id: TraitId,
     pub name: &'static str,
     pub description: &'static str,
+    pub pool: &'static [&'static str],
     pub triggers: &'static [TriggerRule],
 }
 
@@ -164,6 +188,11 @@ pub struct EnemySpec {
     pub name: &'static str,
     pub max_hp: f32,
     pub atk: i32,
+    pub matk: i32,
+    pub def: i32,
+    pub mdef: i32,
+    pub crit_rate: f32,
+    pub crit_mult: f32,
     pub speed: f32,
     pub skills: &'static [SkillId],
 }

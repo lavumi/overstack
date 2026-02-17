@@ -1,10 +1,28 @@
 use crate::event::Event;
 use crate::log::push_event;
-use crate::skill::{EffectSpec, StatType, StatusType};
-use crate::step_api::{ActiveRun, TriggerContext, TRAIT_CHAIN_DEPTH_MAX};
+use crate::skill::{DamageKind, EffectSpec, StatType, StatusType};
+use crate::step_api::{ActiveRun, TraitOwner, TriggerContext, TRAIT_CHAIN_DEPTH_MAX};
 use crate::trait_spec::{trait_by_id, TriggerType};
 
 impl ActiveRun {
+    fn owner_label(owner: TraitOwner) -> &'static str {
+        match owner {
+            TraitOwner::Player => "player",
+            TraitOwner::Enemy => "enemy",
+        }
+    }
+
+    fn owner_unit_idx(&self, owner: TraitOwner) -> Option<usize> {
+        let ctx = TriggerContext {
+            trigger_type: TriggerType::OnBattleStart,
+            owner,
+            src_idx: None,
+            dst_idx: None,
+            applied_status: None,
+        };
+        self.resolve_effect_target(crate::skill::EffectTarget::Owner, ctx)
+    }
+
     fn push_trait_effect_event(
         &self,
         trait_name: &'static str,
@@ -33,14 +51,27 @@ impl ActiveRun {
         }
 
         match effect {
-            EffectSpec::DealDamage { multiplier, flat } => {
-                if let (Some(src_idx), Some(dst_idx)) = (context.src_idx, context.dst_idx) {
-                    let atk = self
-                        .state_ref()
-                        .map(|s| s.units[src_idx].atk as f32)
-                        .unwrap_or(1.0);
-                    let amount = (atk * multiplier + flat).max(0.01);
-                    self.apply_damage(src_idx, dst_idx, amount, depth, events);
+            EffectSpec::DealDamage {
+                damage_kind,
+                multiplier,
+                flat,
+            } => {
+                let src_idx = context.src_idx.or_else(|| self.owner_unit_idx(context.owner));
+                let dst_idx = context
+                    .dst_idx
+                    .or_else(|| {
+                        self.resolve_effect_target(crate::skill::EffectTarget::Opponent, context)
+                    });
+                if let (Some(src_idx), Some(dst_idx)) = (src_idx, dst_idx) {
+                    self.apply_scaled_damage(
+                        src_idx,
+                        dst_idx,
+                        damage_kind,
+                        multiplier,
+                        flat,
+                        depth,
+                        events,
+                    );
                     self.push_trait_effect_event(
                         trait_name,
                         format!("DealDamage x{multiplier:.2} +{flat}"),
@@ -55,7 +86,13 @@ impl ActiveRun {
                 stacks,
                 power,
             } => {
-                if let (Some(src_idx), Some(dst_idx)) = (context.src_idx, context.dst_idx) {
+                let src_idx = context.src_idx.or_else(|| self.owner_unit_idx(context.owner));
+                let dst_idx = context
+                    .dst_idx
+                    .or_else(|| {
+                        self.resolve_effect_target(crate::skill::EffectTarget::Opponent, context)
+                    });
+                if let (Some(src_idx), Some(dst_idx)) = (src_idx, dst_idx) {
                     self.apply_status(
                         src_idx,
                         dst_idx,
@@ -77,6 +114,7 @@ impl ActiveRun {
             EffectSpec::ConditionalDamageAmp { condition, amp } => {
                 if self.evaluate_condition(condition, context) {
                     let next = EffectSpec::DealDamage {
+                        damage_kind: DamageKind::Physical,
                         multiplier: amp,
                         flat: 0.0,
                     };
@@ -107,7 +145,7 @@ impl ActiveRun {
                 amount,
                 duration,
             } => {
-                if let Some(src_idx) = context.src_idx {
+                if let Some(src_idx) = self.owner_unit_idx(context.owner) {
                     let status_type = match stat {
                         StatType::Attack => StatusType::Might,
                         StatType::Speed => StatusType::Haste,
@@ -131,20 +169,20 @@ impl ActiveRun {
                 }
             }
             EffectSpec::AddProcBonus { amount } => {
-                if let Some(src_idx) = context.src_idx {
-                    self.add_proc_bonus(src_idx, amount);
+                if let Some(owner_idx) = self.owner_unit_idx(context.owner) {
+                    self.add_proc_bonus(owner_idx, amount);
                 }
                 self.push_trait_effect_event(trait_name, format!("AddProcBonus +{amount:.2}"), events);
             }
             EffectSpec::AddResBonus { amount } => {
-                if let Some(src_idx) = context.src_idx {
-                    self.add_res_bonus(src_idx, amount);
+                if let Some(owner_idx) = self.owner_unit_idx(context.owner) {
+                    self.add_res_bonus(owner_idx, amount);
                 }
                 self.push_trait_effect_event(trait_name, format!("AddResBonus +{amount:.2}"), events);
             }
             EffectSpec::ModifyStatusPower { status_type, mul } => {
-                if let Some(src_idx) = context.src_idx {
-                    self.update_status_power_mul(src_idx, status_type, mul);
+                if let Some(owner_idx) = self.owner_unit_idx(context.owner) {
+                    self.update_status_power_mul(owner_idx, status_type, mul);
                 }
                 self.push_trait_effect_event(
                     trait_name,
@@ -179,8 +217,11 @@ impl ActiveRun {
             }
             EffectSpec::DealPureDamage { target, amount } => {
                 if let Some(dst_idx) = self.resolve_effect_target(target, context) {
-                    let src_idx = context.src_idx.unwrap_or(dst_idx);
-                    self.apply_damage(src_idx, dst_idx, amount.max(0.01), depth, events);
+                    let src_idx = context
+                        .src_idx
+                        .or_else(|| self.owner_unit_idx(context.owner))
+                        .unwrap_or(dst_idx);
+                    self.apply_pure_damage(src_idx, dst_idx, amount.max(0.01), depth, events);
                     self.push_trait_effect_event(
                         trait_name,
                         format!("DealPureDamage {:.2}", amount.max(0.01)),
@@ -201,30 +242,39 @@ impl ActiveRun {
             return;
         }
 
-        let trait_ids = self.active_traits.clone();
-        for trait_id in trait_ids {
-            let Some(spec) = trait_by_id(trait_id) else {
-                continue;
+        let owners = [TraitOwner::Player, TraitOwner::Enemy];
+        for owner in owners {
+            let trait_ids = match owner {
+                TraitOwner::Player => self.player_traits.clone(),
+                TraitOwner::Enemy => self.enemy_traits.clone(),
             };
-
-            for rule in spec.triggers {
-                if !self.trigger_matches(rule.trigger, context.trigger_type) {
+            for trait_id in trait_ids {
+                let Some(spec) = trait_by_id(trait_id) else {
                     continue;
-                }
-                if !self.evaluate_condition(rule.condition, context) {
-                    continue;
-                }
+                };
 
-                push_event(
-                    events,
-                    Event::TraitTriggered {
-                        trait_name: spec.name,
-                        trigger_type: rule.trigger.as_str(),
-                    },
-                );
+                let owner_context = TriggerContext { owner, ..context };
 
-                for effect in rule.effects {
-                    self.process_trait_effect(spec.name, *effect, context, depth + 1, events);
+                for rule in spec.triggers {
+                    if !self.trigger_matches(rule.trigger, owner_context.trigger_type) {
+                        continue;
+                    }
+                    if !self.evaluate_condition(rule.condition, owner_context) {
+                        continue;
+                    }
+
+                    push_event(
+                        events,
+                        Event::TraitTriggered {
+                            owner: Self::owner_label(owner),
+                            trait_name: spec.name,
+                            trigger_type: rule.trigger.as_str(),
+                        },
+                    );
+
+                    for effect in rule.effects {
+                        self.process_trait_effect(spec.name, *effect, owner_context, depth + 1, events);
+                    }
                 }
             }
         }
@@ -238,6 +288,7 @@ impl ActiveRun {
         let _ = result;
         let context = TriggerContext {
             trigger_type: TriggerType::OnBattleEnd,
+            owner: TraitOwner::Player,
             src_idx: None,
             dst_idx: None,
             applied_status: None,

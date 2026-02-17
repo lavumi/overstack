@@ -5,6 +5,7 @@
       "id": "cinder_scholar",
       "name": "Cinder Scholar",
       "description": "Burn applied by player is stronger.",
+      "pool": ["player"],
       "triggers": [
         {
           "on": "OnStatusApplied",
@@ -28,6 +29,7 @@
       "id": "frozen_momentum",
       "name": "Frozen Momentum",
       "description": "Applying Freeze adds Break stacks.",
+      "pool": ["player"],
       "triggers": [
         {
           "on": "OnStatusApplied",
@@ -52,6 +54,7 @@
       "id": "overcharge",
       "name": "Overcharge",
       "description": "Applying Shock deals bonus pure damage.",
+      "pool": ["player"],
       "triggers": [
         {
           "on": "OnStatusApplied",
@@ -75,6 +78,7 @@
       "id": "ruthless",
       "name": "Ruthless",
       "description": "Targets with 2+ statuses take extra damage.",
+      "pool": ["player"],
       "triggers": [
         {
           "on": "OnDamageDealt",
@@ -98,6 +102,7 @@
       "id": "shatterpoint",
       "name": "Shatterpoint",
       "description": "Break on frozen targets may stun.",
+      "pool": ["player"],
       "triggers": [
         {
           "on": "OnStatusApplied",
@@ -119,6 +124,24 @@
               "duration": 1.5,
               "stacks": 1,
               "power": 1.0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "enemy_iron_shell",
+      "name": "Iron Shell",
+      "description": "Enemy starts battle with extra resistance.",
+      "pool": ["enemy"],
+      "triggers": [
+        {
+          "on": "OnBattleStart",
+          "condition": { "type": "OwnerIsEnemy" },
+          "effects": [
+            {
+              "type": "AddResBonus",
+              "amount": 0.08
             }
           ]
         }

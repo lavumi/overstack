@@ -3,10 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Overstack Log Viewer</title>
+    <title>Overstack Combat HUD</title>
     <style>
       :root {
         color-scheme: dark;
+        --bg: #0b1118;
+        --panel: #111923;
+        --panel-border: #223041;
+        --text: #e6edf3;
+        --muted: #9fb0c3;
+        --hp: #f97316;
+        --gauge: #22c55e;
+        --bar-bg: #1d2733;
+        --accent: #38bdf8;
       }
 
       * {
@@ -15,67 +24,21 @@
 
       body {
         margin: 0;
-        padding: 16px;
-        font-family: sans-serif;
-        background: #0e1116;
-        color: #e6edf3;
         min-height: 100vh;
+        padding: 14px;
+        background: radial-gradient(circle at 20% 0%, #122033 0%, var(--bg) 48%);
+        color: var(--text);
+        font-family: "Segoe UI", "Noto Sans KR", sans-serif;
         display: grid;
-        grid-template-rows: auto 1fr auto auto;
+        grid-template-rows: auto 1fr auto;
         gap: 12px;
       }
 
-      .controls {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-
-      .controls input {
-        width: 120px;
-        padding: 6px 8px;
-      }
-
-      .controls button {
-        padding: 6px 10px;
-        cursor: pointer;
-      }
-
-      #log {
-        margin: 0;
-        padding: 12px;
-        border: 1px solid #2f3742;
-        border-radius: 8px;
-        background: #111827;
-        color: #d1fae5;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-        line-height: 1.35;
-        overflow: auto;
-        white-space: pre-wrap;
-      }
-
-      .status {
-        border: 1px solid #2f3742;
-        border-radius: 8px;
-        background: #151b23;
-        padding: 10px 12px;
-        display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
-        gap: 8px;
-        font-size: 14px;
-      }
-
-      .status strong {
-        display: block;
-        color: #8b949e;
-        font-size: 12px;
-        margin-bottom: 4px;
-      }
-
-      .action-panel {
-        border: 1px solid #2f3742;
-        border-radius: 8px;
-        background: #151b23;
+      .run-bar,
+      .action-bar {
+        background: var(--panel);
+        border: 1px solid var(--panel-border);
+        border-radius: 10px;
         padding: 10px 12px;
         display: flex;
         align-items: center;
@@ -83,73 +46,231 @@
         flex-wrap: wrap;
       }
 
-      .action-panel button {
-        padding: 6px 10px;
-        border: 1px solid #3a4553;
-        background: #222b36;
-        color: #b8c1cc;
+      .run-bar input,
+      .run-bar select,
+      .run-bar button,
+      .action-bar button {
+        background: #1a2533;
+        color: var(--text);
+        border: 1px solid #30445b;
+        border-radius: 8px;
+        padding: 7px 10px;
       }
 
-      .action-panel button:disabled {
-        opacity: 0.6;
+      .main-grid {
+        min-height: 0;
+        display: grid;
+        grid-template-columns: minmax(260px, 320px) minmax(420px, 1fr) minmax(260px, 320px);
+        gap: 12px;
       }
 
-      .action-panel button:not(:disabled) {
-        border-color: #34d399;
-        color: #d1fae5;
-        background: #11302a;
+      .panel {
+        min-height: 0;
+        background: var(--panel);
+        border: 1px solid var(--panel-border);
+        border-radius: 10px;
+        padding: 12px;
+        display: grid;
+        gap: 10px;
+        align-content: start;
+      }
+
+      .panel h2 {
+        margin: 0;
+        font-size: 16px;
+      }
+
+      .meta-row {
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .kv {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 14px;
+      }
+
+      .bar-block {
+        display: grid;
+        gap: 6px;
+      }
+
+      .bar-track {
+        height: 10px;
+        border-radius: 999px;
+        background: var(--bar-bg);
+        overflow: hidden;
+      }
+
+      .bar-fill {
+        height: 100%;
+        width: 0%;
+        transition: width 0.2s ease;
+      }
+
+      .hp-fill {
+        background: linear-gradient(90deg, #f59e0b, var(--hp));
+      }
+
+      .gauge-fill {
+        background: linear-gradient(90deg, #10b981, var(--gauge));
+      }
+
+      .status-list {
+        margin: 0;
+        padding-left: 18px;
+        max-height: 180px;
+        overflow: auto;
+        color: #c7d6e6;
+        font-size: 13px;
+      }
+
+      .arena {
+        min-height: 0;
+        display: grid;
+        grid-template-rows: auto 1fr;
+        gap: 10px;
+      }
+
+      .arena-header {
+        background: #132231;
+        border: 1px solid #2b455f;
+        border-radius: 8px;
+        padding: 10px;
+        min-height: 46px;
+        display: flex;
+        align-items: center;
+        color: #cde8ff;
+      }
+
+      .arena-body {
+        min-height: 0;
+        border: 1px solid #2d3f53;
+        border-radius: 8px;
+        background: #0f1722;
+        padding: 10px;
+        overflow: auto;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        white-space: pre-wrap;
+        line-height: 1.33;
+      }
+
+      .action-bar button:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+
+      .action-bar button:not(:disabled) {
+        border-color: var(--accent);
+        background: #0c2a3e;
+        color: #d8f2ff;
         font-weight: 600;
       }
 
       #inputPrompt {
-        margin-left: 8px;
-        color: #f59e0b;
+        color: #facc15;
         font-weight: 600;
+      }
+
+      @media (max-width: 1160px) {
+        .main-grid {
+          grid-template-columns: minmax(260px, 300px) minmax(360px, 1fr) minmax(260px, 300px);
+        }
+      }
+
+      @media (max-width: 980px) {
+        body {
+          overflow-x: auto;
+        }
       }
     </style>
   </head>
   <body>
-    <section class="controls">
+    <section class="run-bar">
       <label for="seedInput">Seed</label>
       <input id="seedInput" type="number" value="1234" />
+      <label for="speedSelect">Speed</label>
+      <select id="speedSelect">
+        <option value="0.75">0.75x</option>
+        <option value="1" selected>1.0x</option>
+        <option value="1.5">1.5x</option>
+        <option value="2">2.0x</option>
+      </select>
       <button id="startBtn" type="button">Start</button>
       <button id="resetBtn" type="button">Reset</button>
       <span id="bootStatus">WASM loading...</span>
     </section>
 
-    <pre id="log" aria-live="polite"></pre>
+    <main class="main-grid">
+      <section class="panel left-panel">
+        <h2 id="playerName">Player</h2>
+        <div class="meta-row">Node <span id="statusNode">-</span> / Battle <span id="statusBattle">-</span></div>
 
-    <section class="status">
-      <div>
-        <strong>현재 노드 번호</strong>
-        <span id="statusNode">-</span>
-      </div>
-      <div>
-        <strong>현재 전투 번호</strong>
-        <span id="statusBattle">-</span>
-      </div>
-      <div>
-        <strong>플레이어 HP / Gauge</strong>
-        <span id="statusPlayerHp">-</span>
-      </div>
-      <div>
-        <strong>적 HP / Gauge</strong>
-        <span id="statusEnemyHp">-</span>
-      </div>
-      <div>
-        <strong>전투 결과</strong>
-        <span id="statusResult">진행 중</span>
-      </div>
-    </section>
+        <div class="bar-block">
+          <div class="kv"><span>HP</span><span id="playerHpText">-</span></div>
+          <div class="bar-track"><div id="playerHpFill" class="bar-fill hp-fill"></div></div>
+        </div>
 
-    <section class="status">
-      <div style="grid-column: 1 / -1">
-        <strong>Active Traits</strong>
-        <span id="statusTraits">-</span>
-      </div>
-    </section>
+        <div class="bar-block">
+          <div class="kv"><span>Action Gauge</span><span id="playerGaugeText">-</span></div>
+          <div class="bar-track"><div id="playerGaugeFill" class="bar-fill gauge-fill"></div></div>
+        </div>
 
-    <section class="action-panel">
+        <div class="kv"><span>ATK / MATK</span><span id="playerAtkMatk">-</span></div>
+        <div class="kv"><span>DEF (base -> eff)</span><span id="playerDef">-</span></div>
+        <div class="kv"><span>MDEF</span><span id="playerMdef">-</span></div>
+        <div class="kv"><span>Crit Chance</span><span id="playerCrit">-</span></div>
+
+        <div>
+          <div class="meta-row">Active Traits (Player)</div>
+          <div id="playerTraits">-</div>
+        </div>
+
+        <div>
+          <div class="meta-row">Statuses</div>
+          <ul id="playerStatuses" class="status-list"></ul>
+        </div>
+      </section>
+
+      <section class="panel center-panel arena">
+        <div id="arenaStatus" class="arena-header">Ready</div>
+        <pre id="log" class="arena-body" aria-live="polite"></pre>
+      </section>
+
+      <section class="panel right-panel">
+        <h2 id="enemyName">Enemy</h2>
+
+        <div class="bar-block">
+          <div class="kv"><span>HP</span><span id="enemyHpText">-</span></div>
+          <div class="bar-track"><div id="enemyHpFill" class="bar-fill hp-fill"></div></div>
+        </div>
+
+        <div class="bar-block">
+          <div class="kv"><span>Action Gauge</span><span id="enemyGaugeText">-</span></div>
+          <div class="bar-track"><div id="enemyGaugeFill" class="bar-fill gauge-fill"></div></div>
+        </div>
+
+        <div class="kv"><span>ATK / MATK</span><span id="enemyAtkMatk">-</span></div>
+        <div class="kv"><span>DEF (base -> eff)</span><span id="enemyDef">-</span></div>
+        <div class="kv"><span>MDEF</span><span id="enemyMdef">-</span></div>
+        <div class="kv"><span>Next Intent</span><span id="enemyIntent">-</span></div>
+
+        <div>
+          <div class="meta-row">Active Traits (Enemy)</div>
+          <div id="enemyTraits">-</div>
+        </div>
+
+        <div>
+          <div class="meta-row">Statuses</div>
+          <ul id="enemyStatuses" class="status-list"></ul>
+        </div>
+
+      </section>
+    </main>
+
+    <section class="action-bar">
       <button id="actionBasic" type="button" disabled>Basic Attack</button>
       <button id="actionSkill1" type="button" disabled>Skill 1</button>
       <button id="actionSkill2" type="button" disabled>Skill 2</button>

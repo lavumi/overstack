@@ -1,3 +1,5 @@
+use crate::combat_math::{compute_damage, crit_chance};
+use crate::data::specs::DamageKind;
 use crate::event::Event;
 use crate::log::push_event;
 use crate::model::{BattleOutcome, BattleState, Team, Unit};
@@ -12,10 +14,20 @@ pub fn create_battle(
     player_hp: f32,
     player_max_hp: f32,
     player_atk: i32,
+    player_matk: i32,
+    player_def: i32,
+    player_mdef: i32,
+    player_crit_rate: f32,
+    player_crit_mult: f32,
     player_speed: f32,
     enemy_count: u32,
     enemy_hp: f32,
     enemy_atk: i32,
+    enemy_matk: i32,
+    enemy_def: i32,
+    enemy_mdef: i32,
+    enemy_crit_rate: f32,
+    enemy_crit_mult: f32,
     enemy_speed: f32,
 ) -> BattleState {
     let mut units = Vec::new();
@@ -25,6 +37,11 @@ pub fn create_battle(
         hp: hp2(player_hp),
         max_hp: hp2(player_max_hp),
         atk: player_atk,
+        matk: player_matk,
+        def: player_def,
+        mdef: player_mdef,
+        crit_rate: player_crit_rate.max(0.0),
+        crit_mult: player_crit_mult.max(1.0),
         speed: player_speed,
         action_gauge: 0.0,
     });
@@ -36,6 +53,11 @@ pub fn create_battle(
             hp: hp2(enemy_hp),
             max_hp: hp2(enemy_hp),
             atk: enemy_atk,
+            matk: enemy_matk,
+            def: enemy_def,
+            mdef: enemy_mdef,
+            crit_rate: enemy_crit_rate.max(0.0),
+            crit_mult: enemy_crit_mult.max(1.0),
             speed: enemy_speed,
             action_gauge: 0.0,
         });
@@ -127,7 +149,16 @@ pub fn run_battle(
             }
 
             let target_idx = target_indices[rng.range_usize(target_indices.len())];
-            let damage = (state.units[actor_idx].atk as f32).max(0.01);
+            let crit_chance = crit_chance(state.units[actor_idx].crit_rate);
+            let crit = ((rng.next_u32() as f64) / (u32::MAX as f64)) < crit_chance as f64;
+            let breakdown = compute_damage(
+                &state.units[actor_idx],
+                &state.units[target_idx],
+                DamageKind::Physical,
+                1.0,
+                0.0,
+                crit,
+            );
             let target = team_to_actor(target_team);
 
             push_event(logs, Event::TurnReady { actor });
@@ -139,14 +170,19 @@ pub fn run_battle(
                 },
             );
 
-            state.units[target_idx].hp = hp2((state.units[target_idx].hp - damage).max(0.0));
+            state.units[target_idx].hp = hp2((state.units[target_idx].hp - breakdown.amount).max(0.0));
 
             push_event(
                 logs,
                 Event::DamageDealt {
                     src: actor,
                     dst: target,
-                    amount: damage,
+                    damage_kind: DamageKind::Physical.as_str(),
+                    raw: breakdown.raw,
+                    defense_used: breakdown.defense_used,
+                    mitigation: breakdown.mitigation,
+                    crit: breakdown.crit,
+                    amount: breakdown.amount,
                     dst_hp_after: state.units[target_idx].hp,
                 },
             );

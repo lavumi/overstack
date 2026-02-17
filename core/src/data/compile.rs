@@ -4,8 +4,8 @@ use super::defs::{ConditionDef, EffectDef, EmbeddedDefs};
 use super::errors::ErrorReport;
 use super::registry::{EnemyRegistry, GameData, SkillRegistry, TraitRegistry};
 use super::specs::{
-    Condition, EffectSpec, EffectTarget, EnemySpec, SkillId, SkillSpec, StatType, StatusType, TraitId,
-    TraitSpec, TriggerRule, TriggerType,
+    Condition, DamageKind, EffectSpec, EffectTarget, EnemySpec, SkillId, SkillSpec, StatType, StatusType,
+    TraitId, TraitSpec, TriggerRule, TriggerType,
 };
 
 pub fn compile_defs(defs: &EmbeddedDefs) -> Result<GameData, ErrorReport> {
@@ -16,6 +16,7 @@ pub fn compile_defs(defs: &EmbeddedDefs) -> Result<GameData, ErrorReport> {
     let enemies = compile_enemies(defs, &mut report);
     let player_loadout = compile_player_loadout(defs, &skills, &mut report);
     let selectable_traits = compile_selectable_traits(defs, &traits, &mut report);
+    let enemy_trait_pool = compile_enemy_trait_pool(defs, &traits, &mut report);
 
     if report.is_empty() {
         Ok(GameData {
@@ -24,6 +25,7 @@ pub fn compile_defs(defs: &EmbeddedDefs) -> Result<GameData, ErrorReport> {
             enemies,
             player_loadout,
             selectable_traits,
+            enemy_trait_pool,
         })
     } else {
         Err(report)
@@ -50,6 +52,7 @@ fn compile_skills(defs: &EmbeddedDefs, report: &mut ErrorReport) -> SkillRegistr
             description: leak_str(def.description.clone()),
             base_damage_multiplier: def.base_damage_multiplier,
             flat_bonus_damage: def.flat_bonus_damage,
+            damage_kind: DamageKind::Physical,
             effects: leak_effects(effects),
             tags: leak_strings(def.tags.clone().unwrap_or_default()),
         };
@@ -98,6 +101,7 @@ fn compile_traits(defs: &EmbeddedDefs, report: &mut ErrorReport) -> TraitRegistr
             id,
             name: leak_str(def.name.clone()),
             description: leak_str(def.description.clone()),
+            pool: leak_strings(def.pool.clone().unwrap_or_default()),
             triggers: leak_trigger_rules(rules),
         };
 
@@ -117,6 +121,11 @@ fn compile_enemies(defs: &EmbeddedDefs, _report: &mut ErrorReport) -> EnemyRegis
             name: leak_str(def.name.clone()),
             max_hp: def.max_hp,
             atk: def.atk,
+            matk: def.matk.unwrap_or(def.atk),
+            def: def.def.unwrap_or(0),
+            mdef: def.mdef.unwrap_or(0),
+            crit_rate: def.crit_rate.unwrap_or(15.0).max(0.0),
+            crit_mult: def.crit_mult.unwrap_or(1.5).max(1.0),
             speed: def.speed,
             skills: leak_skill_ids(def.skills.clone()),
         };
@@ -166,9 +175,38 @@ fn compile_selectable_traits(
     out
 }
 
+fn compile_enemy_trait_pool(
+    defs: &EmbeddedDefs,
+    traits: &TraitRegistry,
+    report: &mut ErrorReport,
+) -> Vec<TraitId> {
+    let mut out = Vec::new();
+    for (i, trait_def) in defs.traits.traits.iter().enumerate() {
+        let has_enemy_pool = trait_def
+            .pool
+            .as_ref()
+            .map(|items| items.iter().any(|p| p == "enemy"))
+            .unwrap_or(false);
+        if !has_enemy_pool {
+            continue;
+        }
+        if !traits.contains_key(trait_def.id.as_str()) {
+            report.push(
+                format!("traits.traits[{i}].id"),
+                format!("unknown trait '{}'", trait_def.id),
+            );
+            continue;
+        }
+        out.push(leak_str(trait_def.id.clone()));
+    }
+    out
+}
+
 fn compile_effect(def: &EffectDef, report: &mut ErrorReport, path: String) -> Option<EffectSpec> {
     match def.effect_type.as_str() {
         "DealDamage" => Some(EffectSpec::DealDamage {
+            damage_kind: parse_damage_kind(def.damage_kind.as_deref().unwrap_or("Physical"), report, format!("{path}.damage_kind"))
+                .unwrap_or(DamageKind::Physical),
             multiplier: def.multiplier.unwrap_or(1.0),
             flat: def.flat.unwrap_or(0.0),
         }),
@@ -245,6 +283,10 @@ fn compile_condition(def: &ConditionDef, report: &mut ErrorReport, path: String)
         "Always" => Condition::Always,
         "SrcIsPlayer" => Condition::SrcIsPlayer,
         "DstIsEnemy" => Condition::DstIsEnemy,
+        "OwnerIsPlayer" => Condition::OwnerIsPlayer,
+        "OwnerIsEnemy" => Condition::OwnerIsEnemy,
+        "SrcIsOwner" => Condition::SrcIsOwner,
+        "DstIsOwner" => Condition::DstIsOwner,
         "AppliedStatusIs" => parse_status(def.status.as_deref().unwrap_or(""), report, format!("{path}.status"))
             .map(Condition::AppliedStatusIs)
             .unwrap_or(Condition::Always),
@@ -307,12 +349,25 @@ fn parse_status(raw: &str, report: &mut ErrorReport, path: String) -> Option<Sta
 
 fn parse_target(raw: &str, report: &mut ErrorReport, path: String) -> Option<EffectTarget> {
     match raw {
+        "Owner" => Some(EffectTarget::Owner),
+        "Opponent" => Some(EffectTarget::Opponent),
         "Src" => Some(EffectTarget::Src),
         "Dst" => Some(EffectTarget::Dst),
         "Player" => Some(EffectTarget::Player),
         "Enemy" => Some(EffectTarget::Enemy),
         _ => {
             report.push(path, format!("unknown target '{}'", raw));
+            None
+        }
+    }
+}
+
+fn parse_damage_kind(raw: &str, report: &mut ErrorReport, path: String) -> Option<DamageKind> {
+    match raw {
+        "Physical" => Some(DamageKind::Physical),
+        "Magical" => Some(DamageKind::Magical),
+        _ => {
+            report.push(path, format!("unknown damage_kind '{}'", raw));
             None
         }
     }

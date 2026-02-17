@@ -1,5 +1,5 @@
 pub use crate::data::specs::{
-    Condition, EffectSpec, EffectTarget, SkillSpec, StatType, StatusType,
+    Condition, DamageKind, EffectSpec, EffectTarget, SkillSpec, StatType, StatusType,
 };
 
 pub fn skill_by_id(id: &str) -> Option<&'static SkillSpec> {
@@ -26,6 +26,7 @@ pub fn player_skill_for_slot(slot: u32) -> &'static SkillSpec {
             description: "Fallback basic attack",
             base_damage_multiplier: 1.0,
             flat_bonus_damage: Some(0.0),
+            damage_kind: DamageKind::Physical,
             effects: &EMPTY_EFFECTS,
             tags: &EMPTY_TAGS,
         };

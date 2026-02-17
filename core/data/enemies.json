@@ -5,6 +5,11 @@
       "name": "Rogue Drone",
       "max_hp": 84.0,
       "atk": 11,
+      "matk": 11,
+      "def": 5,
+      "mdef": 5,
+      "crit_rate": 8.0,
+      "crit_mult": 1.5,
       "spd": 28.0,
       "skills": ["basic_attack"]
     },
@@ -13,6 +18,11 @@
       "name": "Overstack Core",
       "max_hp": 220.0,
       "atk": 14,
+      "matk": 16,
+      "def": 10,
+      "mdef": 10,
+      "crit_rate": 15.0,
+      "crit_mult": 1.5,
       "spd": 32.0,
       "skills": ["basic_attack", "arc_jolt"]
     }

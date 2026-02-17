@@ -21,6 +21,11 @@ pub enum Event {
     DamageDealt {
         src: &'static str,
         dst: &'static str,
+        damage_kind: &'static str,
+        raw: f32,
+        defense_used: i32,
+        mitigation: f32,
+        crit: bool,
         amount: f32,
         dst_hp_after: f32,
     },
@@ -50,6 +55,7 @@ pub enum Event {
         final_node_index: u32,
     },
     TraitTriggered {
+        owner: &'static str,
         trait_name: &'static str,
         trigger_type: &'static str,
     },
@@ -101,13 +107,23 @@ impl Event {
             Event::DamageDealt {
                 src,
                 dst,
+                damage_kind,
+                raw,
+                defense_used,
+                mitigation,
+                crit,
                 amount,
                 dst_hp_after,
             } => {
                 format!(
-                    r#"{{"kind":"DamageDealt","src":"{}","dst":"{}","amount":{},"dst_hp_after":{}}}"#,
+                    r#"{{"kind":"DamageDealt","src":"{}","dst":"{}","damage_kind":"{}","raw":{},"defense_used":{},"mitigation":{},"crit":{},"amount":{},"dst_hp_after":{}}}"#,
                     escape_json(src),
                     escape_json(dst),
+                    escape_json(damage_kind),
+                    json_f32(*raw),
+                    defense_used,
+                    json_f32(*mitigation),
+                    if *crit { "true" } else { "false" },
                     json_f32(*amount),
                     json_f32(*dst_hp_after)
                 )
@@ -170,11 +186,13 @@ impl Event {
                 )
             }
             Event::TraitTriggered {
+                owner,
                 trait_name,
                 trigger_type,
             } => {
                 format!(
-                    r#"{{"kind":"TraitTriggered","trait_name":"{}","trigger_type":"{}"}}"#,
+                    r#"{{"kind":"TraitTriggered","owner":"{}","trait_name":"{}","trigger_type":"{}"}}"#,
+                    escape_json(owner),
                     escape_json(trait_name),
                     escape_json(trigger_type)
                 )

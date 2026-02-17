@@ -2,7 +2,6 @@
 import init, {
   create_run,
   destroy_run,
-  get_active_traits,
   get_player_skills,
   get_selectable_trait_ids,
   get_selectable_trait_names,
@@ -14,18 +13,41 @@ import init, {
 } from "./pkg/core.js";
 
 const seedInput = document.getElementById("seedInput");
+const speedSelect = document.getElementById("speedSelect");
 const startBtn = document.getElementById("startBtn");
 const resetBtn = document.getElementById("resetBtn");
 const bootStatus = document.getElementById("bootStatus");
 const logEl = document.getElementById("log");
+const arenaStatus = document.getElementById("arenaStatus");
+
 const statusNode = document.getElementById("statusNode");
 const statusBattle = document.getElementById("statusBattle");
-const statusPlayerHp = document.getElementById("statusPlayerHp");
-const statusEnemyHp = document.getElementById("statusEnemyHp");
-const statusResult = document.getElementById("statusResult");
-const statusTraits = document.getElementById("statusTraits");
-const inputPrompt = document.getElementById("inputPrompt");
+const playerTraits = document.getElementById("playerTraits");
+const enemyTraits = document.getElementById("enemyTraits");
 
+const playerName = document.getElementById("playerName");
+const playerHpText = document.getElementById("playerHpText");
+const playerHpFill = document.getElementById("playerHpFill");
+const playerGaugeText = document.getElementById("playerGaugeText");
+const playerGaugeFill = document.getElementById("playerGaugeFill");
+const playerAtkMatk = document.getElementById("playerAtkMatk");
+const playerDef = document.getElementById("playerDef");
+const playerMdef = document.getElementById("playerMdef");
+const playerCrit = document.getElementById("playerCrit");
+const playerStatuses = document.getElementById("playerStatuses");
+
+const enemyName = document.getElementById("enemyName");
+const enemyHpText = document.getElementById("enemyHpText");
+const enemyHpFill = document.getElementById("enemyHpFill");
+const enemyGaugeText = document.getElementById("enemyGaugeText");
+const enemyGaugeFill = document.getElementById("enemyGaugeFill");
+const enemyAtkMatk = document.getElementById("enemyAtkMatk");
+const enemyDef = document.getElementById("enemyDef");
+const enemyMdef = document.getElementById("enemyMdef");
+const enemyIntent = document.getElementById("enemyIntent");
+const enemyStatuses = document.getElementById("enemyStatuses");
+
+const inputPrompt = document.getElementById("inputPrompt");
 const actionBasicBtn = document.getElementById("actionBasic");
 const actionSkillButtons = [
   document.getElementById("actionSkill1"),
@@ -34,22 +56,30 @@ const actionSkillButtons = [
   document.getElementById("actionSkill4"),
 ];
 
-const STEP_DT = 0.15;
+const STEP_DT_BASE = 0.15;
 const LOOP_MS = 120;
 const MAX_NODES = 6;
-const MAX_LOG_LINES = 30;
+const MAX_LOG_LINES = 2000;
+const CRIT_C = 100;
 
 let currentHandle = null;
 let loopTimer = null;
 let logLines = [];
 let uiMode = "idle"; // idle | trait_select | running | need_input | ended
 let selectableTraitIds = [];
+let lastEnemyName = "Enemy";
 
 function stopLoop() {
   if (loopTimer !== null) {
     clearInterval(loopTimer);
     loopTimer = null;
   }
+}
+
+function currentStepDt() {
+  const speed = Number.parseFloat(speedSelect.value);
+  const safe = Number.isFinite(speed) && speed > 0 ? speed : 1;
+  return STEP_DT_BASE * safe;
 }
 
 function setActionButtonsEnabled(enabled) {
@@ -61,6 +91,10 @@ function setActionButtonsEnabled(enabled) {
 
 function setInputPrompt(text) {
   inputPrompt.textContent = text;
+}
+
+function setArenaStatus(text) {
+  arenaStatus.textContent = text;
 }
 
 function setCombatLabels(skillNames) {
@@ -78,13 +112,61 @@ function setTraitLabels(traitNames) {
   }
 }
 
+function clampPct(v) {
+  return Math.max(0, Math.min(100, v));
+}
+
+function setBar(fillEl, current, max) {
+  const pct = max > 0 ? clampPct((current / max) * 100) : 0;
+  fillEl.style.width = `${pct.toFixed(1)}%`;
+}
+
+function fmtStatuses(statuses) {
+  if (!statuses || statuses.length === 0) {
+    return ["None"];
+  }
+  return statuses.map((s) => `${s.status_type} x${s.stacks} (${Number(s.duration).toFixed(1)}s)`);
+}
+
+function renderStatusList(listEl, statuses) {
+  const lines = fmtStatuses(statuses);
+  listEl.innerHTML = "";
+  const frag = document.createDocumentFragment();
+  for (const line of lines) {
+    const li = document.createElement("li");
+    li.textContent = line;
+    frag.appendChild(li);
+  }
+  listEl.appendChild(frag);
+}
+
 function resetStatus() {
   statusNode.textContent = "-";
   statusBattle.textContent = "-";
-  statusPlayerHp.textContent = "-";
-  statusEnemyHp.textContent = "-";
-  statusResult.textContent = "진행 중";
-  statusTraits.textContent = "-";
+  playerTraits.textContent = "-";
+  enemyTraits.textContent = "-";
+  playerName.textContent = "Player";
+  enemyName.textContent = "Enemy";
+  playerHpText.textContent = "-";
+  enemyHpText.textContent = "-";
+  playerGaugeText.textContent = "-";
+  enemyGaugeText.textContent = "-";
+  playerAtkMatk.textContent = "-";
+  enemyAtkMatk.textContent = "-";
+  playerDef.textContent = "-";
+  enemyDef.textContent = "-";
+  playerMdef.textContent = "-";
+  enemyMdef.textContent = "-";
+  playerCrit.textContent = "-";
+  enemyIntent.textContent = "-";
+  renderStatusList(playerStatuses, []);
+  renderStatusList(enemyStatuses, []);
+  setBar(playerHpFill, 0, 1);
+  setBar(enemyHpFill, 0, 1);
+  setBar(playerGaugeFill, 0, 100);
+  setBar(enemyGaugeFill, 0, 100);
+  setArenaStatus("Ready");
+  lastEnemyName = "Enemy";
 }
 
 function resetAll() {
@@ -111,7 +193,7 @@ function formatEventLine(event) {
     case "ActionUsed":
       return `[ActionUsed] actor=${event.actor} action=${event.action_name}`;
     case "DamageDealt":
-      return `[DamageDealt] ${event.src} -> ${event.dst} dmg=${Number(event.amount).toFixed(2)} dst_hp=${Number(event.dst_hp_after).toFixed(2)}`;
+      return `[DamageDealt] ${event.src} -> ${event.dst} kind=${event.damage_kind} raw=${Number(event.raw).toFixed(2)} def=${event.defense_used} mit=${Number(event.mitigation).toFixed(2)} crit=${event.crit} dmg=${Number(event.amount).toFixed(2)} dst_hp=${Number(event.dst_hp_after).toFixed(2)}`;
     case "StatusApplied":
       return `[StatusApplied] ${event.src} -> ${event.dst} ${event.status} stacks=${event.stacks} duration=${event.duration}`;
     case "StatusTick":
@@ -123,7 +205,7 @@ function formatEventLine(event) {
     case "RunEnd":
       return `[RunEnd] result=${event.result} final_node=${event.final_node_index}`;
     case "TraitTriggered":
-      return `[TraitTriggered] ${event.trait_name} via ${event.trigger_type}`;
+      return `[${event.owner === "enemy" ? "E" : "P"}] [TraitTriggered] ${event.trait_name} via ${event.trigger_type}`;
     case "TraitEffectApplied":
       return `[TraitEffectApplied] ${event.trait_name}: ${event.effect_summary}`;
     default:
@@ -139,19 +221,47 @@ function parseEvent(line) {
   }
 }
 
+function updateArenaStatusByEvent(event) {
+  if (event.kind === "BattleStart") {
+    lastEnemyName = event.enemy_name || "Enemy";
+    enemyName.textContent = lastEnemyName;
+    setArenaStatus(`Encounter: ${lastEnemyName}`);
+    return;
+  }
+  if (event.kind === "TurnReady") {
+    setArenaStatus(event.actor === "player" ? "Player Turn" : "Enemy Turn");
+    return;
+  }
+  if (event.kind === "ActionUsed") {
+    const actor = event.actor === "player" ? "Player" : "Enemy";
+    setArenaStatus(`${actor} uses ${event.action_name}`);
+    return;
+  }
+  if (event.kind === "BattleEnd") {
+    setArenaStatus(event.result === "win" ? "Battle Won" : "Battle Lost");
+    return;
+  }
+  if (event.kind === "RunEnd") {
+    setArenaStatus(event.result === "win" ? "Run Complete" : "Run Failed");
+  }
+}
+
 function appendEventLines(events) {
   if (events.length === 0) {
     return;
   }
 
+  const fragLines = [];
   for (const line of events) {
     const event = parseEvent(line);
+    updateArenaStatusByEvent(event);
     const tickLabel = Number.isFinite(Number(event.tick))
       ? `t=${String(Math.trunc(Number(event.tick))).padStart(4, "0")}`
       : "t=----";
-    logLines.push(`[${tickLabel}] ${formatEventLine(event)}`);
+    fragLines.push(`[${tickLabel}] ${formatEventLine(event)}`);
   }
 
+  logLines.push(...fragLines);
   if (logLines.length > MAX_LOG_LINES) {
     logLines = logLines.slice(logLines.length - MAX_LOG_LINES);
   }
@@ -160,19 +270,53 @@ function appendEventLines(events) {
   logEl.scrollTop = logEl.scrollHeight;
 }
 
-function updateHudFromSnapshot(snapshot) {
-  const playerHpInt = Math.round(snapshot.player.hp);
-  const playerMaxHpInt = Math.round(snapshot.player.max_hp);
-  const enemyHpInt = Math.round(snapshot.enemy.hp);
-  const enemyMaxHpInt = Math.round(snapshot.enemy.max_hp);
+function critChancePercent(critRate) {
+  const rate = Number(critRate);
+  if (!Number.isFinite(rate) || rate <= 0) {
+    return 0;
+  }
+  return (rate / (rate + CRIT_C)) * 100;
+}
 
+function updateHudFromSnapshot(snapshot) {
   statusNode.textContent = String(snapshot.node_index);
   statusBattle.textContent = String(snapshot.battle_index);
-  statusPlayerHp.textContent = `${playerHpInt}/${playerMaxHpInt} | ${snapshot.player.action_gauge.toFixed(1)}`;
-  statusEnemyHp.textContent = `${enemyHpInt}/${enemyMaxHpInt} | ${snapshot.enemy.action_gauge.toFixed(1)}`;
+
+  playerName.textContent = "Player";
+  enemyName.textContent = lastEnemyName || "Enemy";
+
+  const php = Number(snapshot.player.hp);
+  const pmax = Number(snapshot.player.max_hp);
+  const ehp = Number(snapshot.enemy.hp);
+  const emax = Number(snapshot.enemy.max_hp);
+  const pg = Number(snapshot.player.action_gauge);
+  const eg = Number(snapshot.enemy.action_gauge);
+
+  playerHpText.textContent = `${php.toFixed(0)} / ${pmax.toFixed(0)}`;
+  enemyHpText.textContent = `${ehp.toFixed(0)} / ${emax.toFixed(0)}`;
+  playerGaugeText.textContent = pg.toFixed(1);
+  enemyGaugeText.textContent = eg.toFixed(1);
+
+  setBar(playerHpFill, php, pmax);
+  setBar(enemyHpFill, ehp, emax);
+  setBar(playerGaugeFill, pg, 100);
+  setBar(enemyGaugeFill, eg, 100);
+
+  playerAtkMatk.textContent = `${snapshot.player.atk} / ${snapshot.player.matk}`;
+  enemyAtkMatk.textContent = `${snapshot.enemy.atk} / ${snapshot.enemy.matk}`;
+  playerDef.textContent = `${snapshot.player.base_def} -> ${snapshot.player.effective_def}`;
+  enemyDef.textContent = `${snapshot.enemy.base_def} -> ${snapshot.enemy.effective_def}`;
+  playerMdef.textContent = String(snapshot.player.mdef);
+  enemyMdef.textContent = String(snapshot.enemy.mdef);
+  playerCrit.textContent = `${critChancePercent(snapshot.player.crit_rate).toFixed(1)}%`;
+  enemyIntent.textContent = snapshot.enemy_next_intent || "-";
+  playerTraits.textContent = (snapshot.player_traits || []).join(", ") || "-";
+  enemyTraits.textContent = (snapshot.enemy_traits || []).join(", ") || "-";
+
+  renderStatusList(playerStatuses, snapshot.player.statuses);
+  renderStatusList(enemyStatuses, snapshot.enemy.statuses);
 
   if (snapshot.run_state === "ended") {
-    statusResult.textContent = snapshot.run_result === "win" ? "승리" : "패배";
     uiMode = "ended";
     setActionButtonsEnabled(false);
     setInputPrompt("");
@@ -183,7 +327,7 @@ function processStepResult(result) {
   appendEventLines(result.events);
 
   if (result.error) {
-    statusResult.textContent = `오류: ${result.error}`;
+    setArenaStatus(`Error: ${result.error}`);
     uiMode = "ended";
     setActionButtonsEnabled(false);
     setInputPrompt("");
@@ -192,10 +336,10 @@ function processStepResult(result) {
   }
 
   if (result.need_input) {
-    statusResult.textContent = "입력 대기";
     uiMode = "need_input";
     setActionButtonsEnabled(true);
     setInputPrompt("Choose action");
+    setArenaStatus("Input Required: Choose action");
     stopLoop();
     return;
   }
@@ -208,7 +352,6 @@ function processStepResult(result) {
     return;
   }
 
-  statusResult.textContent = "진행 중";
   uiMode = "running";
 }
 
@@ -217,7 +360,7 @@ function tickRun() {
     return;
   }
 
-  const result = step_with_action(currentHandle, STEP_DT, "none", -1);
+  const result = step_with_action(currentHandle, currentStepDt(), "none", -1);
   processStepResult(result);
 
   const snapshot = get_snapshot(currentHandle);
@@ -246,7 +389,6 @@ function startRun() {
 
   const seed = Number.parseInt(seedInput.value, 10);
   const safeSeed = Number.isNaN(seed) ? 1234 : seed;
-
   currentHandle = create_run(safeSeed, MAX_NODES);
 
   const traitNames = get_selectable_trait_names();
@@ -254,7 +396,7 @@ function startRun() {
   setTraitLabels(traitNames);
   setActionButtonsEnabled(true);
   setInputPrompt("Choose one trait");
-  statusResult.textContent = "특성 선택";
+  setArenaStatus("Choose a starting trait");
   uiMode = "trait_select";
 
   updateHudFromSnapshot(get_snapshot(currentHandle));
@@ -289,19 +431,17 @@ function chooseTraitByButtonIndex(index) {
 
   const ok = set_active_trait(currentHandle, traitId);
   if (!ok) {
-    statusResult.textContent = "특성 선택 실패";
+    setArenaStatus("Trait select failed");
     return;
   }
-
-  const activeTraits = get_active_traits(currentHandle);
-  statusTraits.textContent = activeTraits.length > 0 ? activeTraits.join(", ") : "-";
 
   const skills = get_player_skills(currentHandle);
   setCombatLabels(skills);
   setActionButtonsEnabled(false);
   setInputPrompt("");
+  setArenaStatus("Simulation running");
+  updateHudFromSnapshot(get_snapshot(currentHandle));
 
-  statusResult.textContent = "진행 중";
   uiMode = "running";
   startLoop();
 }
@@ -345,7 +485,6 @@ async function boot() {
   bootStatus.textContent = "WASM ready";
   console.log("sim started");
 
-  // Keep run_run alive for regression/debug use.
   const smoke = run_run(1234, 1);
   console.log("run_run smoke event count:", smoke.length);
 

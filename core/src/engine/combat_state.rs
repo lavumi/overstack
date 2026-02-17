@@ -1,6 +1,7 @@
+use crate::combat_math::effective_physical_defense;
 use crate::model::{BattleState, Team};
 use crate::skill::{Condition, EffectTarget, StatusType};
-use crate::step_api::{ActiveRun, ActiveStatus, TriggerContext, UnitRuntime};
+use crate::step_api::{ActiveRun, ActiveStatus, TraitOwner, TriggerContext, UnitRuntime};
 use crate::trait_spec::TriggerType;
 
 impl ActiveRun {
@@ -114,6 +115,25 @@ impl ActiveRun {
             .unwrap_or(0)
     }
 
+    pub(crate) fn status_stacks(&self, unit_idx: usize, status_type: StatusType) -> u32 {
+        self.statuses_ref(unit_idx)
+            .and_then(|row| {
+                row.iter()
+                    .find(|s| s.status_type == status_type && s.duration > 0.0)
+                    .map(|s| s.stacks)
+            })
+            .unwrap_or(0)
+    }
+
+    pub(crate) fn effective_def(&self, unit_idx: usize) -> i32 {
+        let base_def = self
+            .state_ref()
+            .and_then(|state| state.units.get(unit_idx).map(|u| u.def))
+            .unwrap_or(0);
+        let break_stacks = self.status_stacks(unit_idx, StatusType::Break);
+        effective_physical_defense(base_def, break_stacks)
+    }
+
     pub(crate) fn target_hp_ratio(&self, unit_idx: usize) -> f32 {
         self.state_ref()
             .map(|state| {
@@ -137,6 +157,30 @@ impl ActiveRun {
             Condition::DstIsEnemy => context
                 .dst_idx
                 .map(|idx| self.actor_label_for_idx(idx) == "enemy")
+                .unwrap_or(false),
+            Condition::OwnerIsPlayer => context.owner == TraitOwner::Player,
+            Condition::OwnerIsEnemy => context.owner == TraitOwner::Enemy,
+            Condition::SrcIsOwner => context
+                .src_idx
+                .map(|idx| {
+                    let unit_team = self
+                        .state_ref()
+                        .map(|s| s.units[idx].team)
+                        .unwrap_or(Team::Enemy);
+                    (context.owner == TraitOwner::Player && unit_team == Team::Player)
+                        || (context.owner == TraitOwner::Enemy && unit_team == Team::Enemy)
+                })
+                .unwrap_or(false),
+            Condition::DstIsOwner => context
+                .dst_idx
+                .map(|idx| {
+                    let unit_team = self
+                        .state_ref()
+                        .map(|s| s.units[idx].team)
+                        .unwrap_or(Team::Enemy);
+                    (context.owner == TraitOwner::Player && unit_team == Team::Player)
+                        || (context.owner == TraitOwner::Enemy && unit_team == Team::Enemy)
+                })
                 .unwrap_or(false),
             Condition::AppliedStatusIs(status_type) => context.applied_status == Some(status_type),
             Condition::RandomRollBelow(p) => self.roll_success(p),
@@ -168,6 +212,30 @@ impl ActiveRun {
         context: TriggerContext,
     ) -> Option<usize> {
         match target {
+            EffectTarget::Owner => match context.owner {
+                TraitOwner::Player => self
+                    .state_ref()
+                    .and_then(|s| s.units.iter().position(|u| u.team == Team::Player)),
+                TraitOwner::Enemy => self
+                    .state_ref()
+                    .and_then(|s| s.units.iter().position(|u| u.team == Team::Enemy && u.is_alive()))
+                    .or_else(|| {
+                        self.state_ref()
+                            .and_then(|s| s.units.iter().position(|u| u.team == Team::Enemy))
+                    }),
+            },
+            EffectTarget::Opponent => match context.owner {
+                TraitOwner::Player => self
+                    .state_ref()
+                    .and_then(|s| s.units.iter().position(|u| u.team == Team::Enemy && u.is_alive()))
+                    .or_else(|| {
+                        self.state_ref()
+                            .and_then(|s| s.units.iter().position(|u| u.team == Team::Enemy))
+                    }),
+                TraitOwner::Enemy => self
+                    .state_ref()
+                    .and_then(|s| s.units.iter().position(|u| u.team == Team::Player)),
+            },
             EffectTarget::Src => context.src_idx,
             EffectTarget::Dst => context.dst_idx,
             EffectTarget::Player => self

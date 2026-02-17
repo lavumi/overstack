@@ -17,6 +17,7 @@ pub struct GameData {
     pub enemies: EnemyRegistry,
     pub player_loadout: [SkillId; 4],
     pub selectable_traits: Vec<TraitId>,
+    pub enemy_trait_pool: Vec<TraitId>,
 }
 
 static GAME_DATA: OnceLock<Result<GameData, ErrorReport>> = OnceLock::new();

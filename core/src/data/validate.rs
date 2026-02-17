@@ -15,11 +15,16 @@ const EFFECT_TYPES: &[&str] = &[
     "AddStatusStacks",
     "DealPureDamage",
 ];
+const DAMAGE_KINDS: &[&str] = &["Physical", "Magical"];
 
 const CONDITION_TYPES: &[&str] = &[
     "Always",
     "SrcIsPlayer",
     "DstIsEnemy",
+    "OwnerIsPlayer",
+    "OwnerIsEnemy",
+    "SrcIsOwner",
+    "DstIsOwner",
     "AppliedStatusIs",
     "RandomRollBelow",
     "TargetHPBelow",
@@ -48,6 +53,7 @@ const TRIGGER_TYPES: &[&str] = &[
 const STATUS_TYPES: &[&str] = &[
     "Burn", "Freeze", "Shock", "Bleed", "Stun", "Break", "Might", "Haste",
 ];
+const EFFECT_TARGETS: &[&str] = &["Owner", "Opponent", "Src", "Dst", "Player", "Enemy"];
 
 pub fn validate_defs(defs: &EmbeddedDefs) -> Result<(), ErrorReport> {
     let mut report = ErrorReport::default();
@@ -76,6 +82,16 @@ pub fn validate_defs(defs: &EmbeddedDefs) -> Result<(), ErrorReport> {
         }
         if enemy.speed <= 0.0 {
             report.push(format!("enemies.enemies[{i}].spd"), "must be > 0");
+        }
+        if let Some(v) = enemy.crit_rate {
+            if v < 0.0 {
+                report.push(format!("enemies.enemies[{i}].crit_rate"), "must be >= 0");
+            }
+        }
+        if let Some(v) = enemy.crit_mult {
+            if v < 1.0 {
+                report.push(format!("enemies.enemies[{i}].crit_mult"), "must be >= 1");
+            }
         }
 
         for (j, skill_id) in enemy.skills.iter().enumerate() {
@@ -110,6 +126,16 @@ pub fn validate_defs(defs: &EmbeddedDefs) -> Result<(), ErrorReport> {
     for (i, trait_def) in defs.traits.traits.iter().enumerate() {
         if trait_def.id.trim().is_empty() {
             report.push(format!("traits.traits[{i}].id"), "must not be empty");
+        }
+        if let Some(pool) = &trait_def.pool {
+            for (j, p) in pool.iter().enumerate() {
+                if p != "enemy" && p != "player" {
+                    report.push(
+                        format!("traits.traits[{i}].pool[{j}]"),
+                        "must be one of: enemy, player",
+                    );
+                }
+            }
         }
         for (j, trigger) in trait_def.triggers.iter().enumerate() {
             if !TRIGGER_TYPES.contains(&trigger.on.as_str()) {
@@ -183,6 +209,14 @@ fn validate_effect(effect: &EffectDef, path: &str, report: &mut ErrorReport) {
 
     match effect.effect_type.as_str() {
         "DealDamage" => {
+            if let Some(kind) = effect.damage_kind.as_deref() {
+                if !DAMAGE_KINDS.contains(&kind) {
+                    report.push(
+                        format!("{path}.damage_kind"),
+                        format!("unknown damage_kind '{kind}'"),
+                    );
+                }
+            }
             if effect.multiplier.is_none() {
                 report.push(format!("{path}.multiplier"), "required");
             }
@@ -247,6 +281,10 @@ fn validate_effect(effect: &EffectDef, path: &str, report: &mut ErrorReport) {
             validate_required_status(effect.status.as_deref(), &format!("{path}.status"), report);
             if effect.target.is_none() {
                 report.push(format!("{path}.target"), "required");
+            } else if let Some(target) = effect.target.as_deref() {
+                if !EFFECT_TARGETS.contains(&target) {
+                    report.push(format!("{path}.target"), format!("unknown target '{target}'"));
+                }
             }
             if effect.stacks.is_none() {
                 report.push(format!("{path}.stacks"), "required");
@@ -255,6 +293,10 @@ fn validate_effect(effect: &EffectDef, path: &str, report: &mut ErrorReport) {
         "DealPureDamage" => {
             if effect.target.is_none() {
                 report.push(format!("{path}.target"), "required");
+            } else if let Some(target) = effect.target.as_deref() {
+                if !EFFECT_TARGETS.contains(&target) {
+                    report.push(format!("{path}.target"), format!("unknown target '{target}'"));
+                }
             }
             if effect.amount.is_none() {
                 report.push(format!("{path}.amount"), "required");

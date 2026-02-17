@@ -41,6 +41,7 @@ pub struct TraitDef {
     pub id: String,
     pub name: String,
     pub description: String,
+    pub pool: Option<Vec<String>>,
     #[serde(default)]
     pub triggers: Vec<TriggerRuleDef>,
 }
@@ -51,6 +52,11 @@ pub struct EnemyDef {
     pub name: String,
     pub max_hp: f32,
     pub atk: i32,
+    pub matk: Option<i32>,
+    pub def: Option<i32>,
+    pub mdef: Option<i32>,
+    pub crit_rate: Option<f32>,
+    pub crit_mult: Option<f32>,
     #[serde(alias = "spd")]
     pub speed: f32,
     #[serde(default)]
@@ -69,6 +75,7 @@ pub struct TriggerRuleDef {
 pub struct EffectDef {
     #[serde(rename = "type")]
     pub effect_type: String,
+    pub damage_kind: Option<String>,
     pub multiplier: Option<f32>,
     pub flat: Option<f32>,
     pub status: Option<String>,

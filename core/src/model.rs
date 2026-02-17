@@ -26,6 +26,11 @@ pub struct Unit {
     pub hp: f32,
     pub max_hp: f32,
     pub atk: i32,
+    pub matk: i32,
+    pub def: i32,
+    pub mdef: i32,
+    pub crit_rate: f32,
+    pub crit_mult: f32,
     pub speed: f32,
     pub action_gauge: f32,
 }
@@ -54,6 +59,11 @@ pub struct RunState {
     pub player_hp: f32,
     pub player_max_hp: f32,
     pub player_atk: i32,
+    pub player_matk: i32,
+    pub player_def: i32,
+    pub player_mdef: i32,
+    pub player_crit_rate: f32,
+    pub player_crit_mult: f32,
     pub player_speed: f32,
 }
 
@@ -68,6 +78,11 @@ impl RunState {
             player_hp: 140.0,
             player_max_hp: 140.0,
             player_atk: 17,
+            player_matk: 17,
+            player_def: 10,
+            player_mdef: 10,
+            player_crit_rate: 15.0,
+            player_crit_mult: 1.5,
             player_speed: 35.0,
         }
     }

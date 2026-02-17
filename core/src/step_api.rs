@@ -63,9 +63,16 @@ pub(crate) enum ActionKind {
     SkillSlot(u32),
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TraitOwner {
+    Player,
+    Enemy,
+}
+
 #[derive(Clone, Copy)]
 pub(crate) struct TriggerContext {
     pub(crate) trigger_type: TriggerType,
+    pub(crate) owner: TraitOwner,
     pub(crate) src_idx: Option<usize>,
     pub(crate) dst_idx: Option<usize>,
     pub(crate) applied_status: Option<StatusType>,
@@ -119,6 +126,12 @@ pub struct UnitSnapshot {
     pub hp: f32,
     pub max_hp: f32,
     pub action_gauge: f32,
+    pub atk: i32,
+    pub matk: i32,
+    pub base_def: i32,
+    pub effective_def: i32,
+    pub mdef: i32,
+    pub crit_rate: f32,
     pub statuses: Vec<StatusSnapshot>,
 }
 
@@ -129,6 +142,9 @@ pub struct Snapshot {
     pub node_index: u32,
     pub battle_index: u32,
     pub elapsed_time: f32,
+    pub enemy_next_intent: String,
+    pub player_traits: Vec<String>,
+    pub enemy_traits: Vec<String>,
     pub player: UnitSnapshot,
     pub enemy: UnitSnapshot,
 }
@@ -145,7 +161,8 @@ pub(crate) struct ActiveRun {
     pub(crate) ended: bool,
     pub(crate) result: &'static str,
     pub(crate) elapsed_time: f32,
-    pub(crate) active_traits: Vec<TraitId>,
+    pub(crate) player_traits: Vec<TraitId>,
+    pub(crate) enemy_traits: Vec<TraitId>,
     pub(crate) game_data: Option<&'static GameData>,
     pub(crate) data_error: Option<ErrorReport>,
 }
@@ -176,7 +193,8 @@ impl ActiveRun {
             ended: false,
             result: "none",
             elapsed_time: 0.0,
-            active_traits: Vec::new(),
+            player_traits: Vec::new(),
+            enemy_traits: Vec::new(),
             game_data,
             data_error,
         }
@@ -187,16 +205,49 @@ impl ActiveRun {
     }
 
     pub(crate) fn active_trait_names(&self) -> Vec<String> {
-        active_trait_names(&self.active_traits)
+        active_trait_names(&self.player_traits)
+    }
+
+    pub(crate) fn enemy_trait_names(&self) -> Vec<String> {
+        active_trait_names(&self.enemy_traits)
     }
 
     pub(crate) fn set_single_active_trait(&mut self, trait_id: &str) -> bool {
         let Some(spec) = trait_by_id(trait_id) else {
             return false;
         };
-        self.active_traits.clear();
-        self.active_traits.push(spec.id);
+        self.player_traits.clear();
+        self.player_traits.push(spec.id);
         true
+    }
+
+    fn roll_enemy_traits(&mut self, node_type: NodeType) -> Vec<TraitId> {
+        let Some(game_data) = self.game_data else {
+            return Vec::new();
+        };
+        if game_data.enemy_trait_pool.is_empty() {
+            return Vec::new();
+        }
+
+        let max_pick: usize = match node_type {
+            NodeType::Boss => 3,
+            _ => 2,
+        };
+        let min_pick: usize = 1;
+        let span = max_pick.saturating_sub(min_pick) + 1;
+        let count = (min_pick + self.run.rng.range_usize(span))
+            .min(game_data.enemy_trait_pool.len());
+
+        let mut bag = game_data.enemy_trait_pool.clone();
+        let mut out = Vec::new();
+        for _ in 0..count {
+            if bag.is_empty() {
+                break;
+            }
+            let idx = self.run.rng.range_usize(bag.len());
+            out.push(bag.remove(idx));
+        }
+        out
     }
 
     pub(crate) fn current_node_type(&self) -> Option<NodeType> {
@@ -240,31 +291,42 @@ impl ActiveRun {
         );
 
         self.battle_index += 1;
-        let (enemy_hp, enemy_atk, enemy_speed, enemy_name) = match node_type {
+        let (enemy_hp, enemy_atk, enemy_matk, enemy_def, enemy_mdef, enemy_crit_rate, enemy_crit_mult, enemy_speed, enemy_name) = match node_type {
             NodeType::Boss => self
                 .game_data
                 .and_then(|d| d.enemies.get("overstack_core"))
-                .map(|e| (e.max_hp, e.atk, e.speed, e.name))
-                .unwrap_or((220.0, 14, 32.0, "Overstack Core")),
+                .map(|e| (e.max_hp, e.atk, e.matk, e.def, e.mdef, e.crit_rate, e.crit_mult, e.speed, e.name))
+                .unwrap_or((220.0, 14, 14, 8, 8, 15.0, 1.5, 32.0, "Overstack Core")),
             _ => self
                 .game_data
                 .and_then(|d| d.enemies.get("rogue_drone"))
-                .map(|e| (e.max_hp, e.atk, e.speed, e.name))
-                .unwrap_or((84.0, 11, 28.0, "Rogue Drone")),
+                .map(|e| (e.max_hp, e.atk, e.matk, e.def, e.mdef, e.crit_rate, e.crit_mult, e.speed, e.name))
+                .unwrap_or((84.0, 11, 11, 5, 5, 10.0, 1.5, 28.0, "Rogue Drone")),
         };
 
         let battle_state = create_battle(
             self.run.player_hp,
             self.run.player_max_hp,
             self.run.player_atk,
+            self.run.player_matk,
+            self.run.player_def,
+            self.run.player_mdef,
+            self.run.player_crit_rate,
+            self.run.player_crit_mult,
             self.run.player_speed,
             1,
             enemy_hp,
             enemy_atk,
+            enemy_matk,
+            enemy_def,
+            enemy_mdef,
+            enemy_crit_rate,
+            enemy_crit_mult,
             enemy_speed,
         );
 
         self.current_battle = Some(ActiveBattle::new(battle_state));
+        self.enemy_traits = self.roll_enemy_traits(node_type);
 
         push_event(
             events,
@@ -276,6 +338,7 @@ impl ActiveRun {
 
         let context = TriggerContext {
             trigger_type: TriggerType::OnBattleStart,
+            owner: TraitOwner::Player,
             src_idx: None,
             dst_idx: None,
             applied_status: None,
@@ -348,16 +411,31 @@ pub fn get_snapshot(handle: u32) -> Snapshot {
         node_index: 0,
         battle_index: 0,
         elapsed_time: 0.0,
+        enemy_next_intent: "-".to_string(),
+        player_traits: Vec::new(),
+        enemy_traits: Vec::new(),
         player: UnitSnapshot {
             hp: 0.0,
             max_hp: 0.0,
             action_gauge: 0.0,
+            atk: 0,
+            matk: 0,
+            base_def: 0,
+            effective_def: 0,
+            mdef: 0,
+            crit_rate: 0.0,
             statuses: Vec::new(),
         },
         enemy: UnitSnapshot {
             hp: 0.0,
             max_hp: 0.0,
             action_gauge: 0.0,
+            atk: 0,
+            matk: 0,
+            base_def: 0,
+            effective_def: 0,
+            mdef: 0,
+            crit_rate: 0.0,
             statuses: Vec::new(),
         },
     })
@@ -394,10 +472,10 @@ mod tests {
 
     #[test]
     fn ember_lash_applies_burn_sometimes_with_fixed_seed() {
-        let mut run = ActiveRun::new(20260213, 1);
+        let mut run = ActiveRun::new(1234, 1);
         let mut burn_applied = 0_u32;
 
-        for _ in 0..50 {
+        for _ in 0..80 {
             let result = run.step_once(0.15, None);
             for line in &result.events {
                 if line.contains("\"kind\":\"StatusApplied\"")
@@ -483,6 +561,32 @@ mod tests {
             max_events < 300,
             "expected event count per step to stay bounded, got {max_events}, depth cap {}",
             TRAIT_CHAIN_DEPTH_MAX
+        );
+    }
+
+    #[test]
+    fn enemy_traits_are_assigned_on_battle_start() {
+        let mut run = ActiveRun::new(1234, 1);
+        let result = run.step_once(0.01, None);
+        assert!(!result.events.is_empty());
+        assert!(
+            !run.enemy_traits.is_empty(),
+            "expected enemy traits to be assigned at battle start"
+        );
+    }
+
+    #[test]
+    fn enemy_trait_trigger_event_is_emitted() {
+        let mut run = ActiveRun::new(1234, 1);
+        let result = run.step_once(0.01, None);
+        let has_enemy_trigger = result.events.iter().any(|line| {
+            line.contains("\"kind\":\"TraitTriggered\"")
+                && line.contains("\"owner\":\"enemy\"")
+                && line.contains("Iron Shell")
+        });
+        assert!(
+            has_enemy_trigger,
+            "expected enemy trait trigger event from battle start"
         );
     }
 }
