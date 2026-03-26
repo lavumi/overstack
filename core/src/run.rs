@@ -1,11 +1,8 @@
 use crate::battle::{create_battle, player_hp_after_battle, run_battle};
+use crate::engine::numeric::round_hp;
 use crate::event::Event;
 use crate::log::push_event;
 use crate::model::{BattleOutcome, NodeType, RunState};
-
-fn hp2(v: f32) -> f32 {
-    (v * 100.0).round() / 100.0
-}
 
 /// Runs one full run skeleton: normal battle nodes + final boss node.
 pub fn run_run_internal(seed: u64, max_nodes: u32) -> Vec<String> {
@@ -96,11 +93,11 @@ pub fn run_run_internal(seed: u64, max_nodes: u32) -> Vec<String> {
 
         match run_battle(&mut battle, &mut run.rng, run.stage, enemy_name, &mut logs) {
             BattleOutcome::Victory => {
-                run.player_hp = hp2(player_hp_after_battle(&battle));
+                run.player_hp = round_hp(player_hp_after_battle(&battle));
 
                 // Temporary sustain rule for skeleton pacing.
-                let recover = hp2(run.player_max_hp * 0.20);
-                run.player_hp = hp2((run.player_hp + recover).min(run.player_max_hp));
+                let recover = round_hp(run.player_max_hp * 0.20);
+                run.player_hp = round_hp((run.player_hp + recover).min(run.player_max_hp));
             }
             BattleOutcome::Defeat => {
                 run.player_hp = 0.0;

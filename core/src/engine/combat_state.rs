@@ -1,15 +1,17 @@
 use crate::combat_math::effective_physical_defense;
+use crate::engine::runtime::{
+    ActiveBattle, ActiveRun, ActiveStatus, TraitOwner, TriggerContext, UnitRuntime,
+};
 use crate::model::{BattleState, Team};
 use crate::skill::{Condition, EffectTarget, StatusType};
-use crate::step_api::{ActiveRun, ActiveStatus, TraitOwner, TriggerContext, UnitRuntime};
 use crate::trait_spec::TriggerType;
 
 impl ActiveRun {
-    fn battle_ref(&self) -> Option<&crate::step_api::ActiveBattle> {
+    fn battle_ref(&self) -> Option<&ActiveBattle> {
         self.current_battle.as_ref()
     }
 
-    fn battle_mut(&mut self) -> Option<&mut crate::step_api::ActiveBattle> {
+    fn battle_mut(&mut self) -> Option<&mut ActiveBattle> {
         self.current_battle.as_mut()
     }
 

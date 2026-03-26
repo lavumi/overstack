@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use super::ActiveRun;
+use crate::engine::runtime::ActiveRun;
 use crate::model::PlayerInitStats;
 
 #[derive(Default)]

@@ -1,5 +1,6 @@
+use crate::engine::runtime::ActiveRun;
 use crate::model::Team;
-use crate::step_api::{ActiveRun, Snapshot, StatusSnapshot, UnitSnapshot};
+use crate::step_api::{Snapshot, StatusSnapshot, UnitSnapshot};
 
 impl ActiveRun {
     fn enemy_next_intent_text(&self) -> String {

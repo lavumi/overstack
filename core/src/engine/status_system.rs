@@ -1,11 +1,12 @@
 use crate::combat_math::{compute_damage, crit_chance, BREAK_MAX_STACKS};
+use crate::engine::numeric::{
+    round_hp, status_duration_display_secs, STATUS_TICK_RATE, STATUS_TICK_THRESHOLD,
+};
+use crate::engine::runtime::{ActiveRun, ActiveStatus, TraitOwner, TriggerContext};
 use crate::event::Event;
 use crate::log::push_event;
 use crate::model::Team;
 use crate::skill::{DamageKind, StatusType};
-use crate::step_api::{
-    hp2, ActiveRun, TraitOwner, TriggerContext, STATUS_TICK_RATE, STATUS_TICK_THRESHOLD,
-};
 use crate::trait_spec::TriggerType;
 
 impl ActiveRun {
@@ -59,7 +60,7 @@ impl ActiveRun {
                 } else {
                     added_stacks
                 };
-                row.push(crate::step_api::ActiveStatus {
+                row.push(ActiveStatus {
                     status_type,
                     stacks: initial_stacks,
                     duration: duration.max(0.1),
@@ -76,7 +77,7 @@ impl ActiveRun {
                 dst: dst_label,
                 status: status_type.as_str(),
                 stacks: stacks.max(1),
-                duration: duration.max(0.0).round() as u32,
+                duration: status_duration_display_secs(duration),
             },
         );
 
@@ -125,7 +126,7 @@ impl ActiveRun {
 
         let dst_hp_after = if let Some(state) = self.state_mut() {
             let unit = &mut state.units[dst_idx];
-            unit.hp = hp2((unit.hp - breakdown.amount.max(0.01)).max(0.0));
+            unit.hp = round_hp((unit.hp - breakdown.amount.max(0.01)).max(0.0));
             unit.hp
         } else {
             return;
@@ -157,7 +158,7 @@ impl ActiveRun {
         let dealt = amount.max(0.01);
         let dst_hp_after = if let Some(state) = self.state_mut() {
             let unit = &mut state.units[dst_idx];
-            unit.hp = hp2((unit.hp - dealt).max(0.0));
+            unit.hp = round_hp((unit.hp - dealt).max(0.0));
             unit.hp
         } else {
             return;
@@ -308,7 +309,8 @@ impl ActiveRun {
         for (unit_idx, status_type, amount) in pending_ticks {
             if let Some(state) = self.state_mut() {
                 if state.units[unit_idx].is_alive() {
-                    state.units[unit_idx].hp = hp2((state.units[unit_idx].hp - amount).max(0.0));
+                    state.units[unit_idx].hp =
+                        round_hp((state.units[unit_idx].hp - amount).max(0.0));
                 }
             }
 
@@ -381,8 +383,9 @@ impl ActiveRun {
                 .unwrap_or(self.run.player_hp);
 
             self.run.player_hp = player_hp;
-            let recover = hp2(self.run.player_max_hp * 0.20);
-            self.run.player_hp = hp2((self.run.player_hp + recover).min(self.run.player_max_hp));
+            let recover = round_hp(self.run.player_max_hp * 0.20);
+            self.run.player_hp =
+                round_hp((self.run.player_hp + recover).min(self.run.player_max_hp));
             self.current_battle = None;
             self.waiting_for_input = false;
 

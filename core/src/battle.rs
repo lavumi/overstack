@@ -1,13 +1,10 @@
 use crate::combat_math::{compute_damage, crit_chance};
 use crate::data::specs::DamageKind;
+use crate::engine::numeric::round_hp;
 use crate::event::Event;
 use crate::log::push_event;
 use crate::model::{BattleOutcome, BattleState, Team, Unit};
 use crate::rng::SimpleRng;
-
-fn hp2(v: f32) -> f32 {
-    (v * 100.0).round() / 100.0
-}
 
 /// Creates a normal battle with one player unit and a small enemy pack.
 pub fn create_battle(
@@ -34,8 +31,8 @@ pub fn create_battle(
     units.push(Unit {
         id: 0,
         team: Team::Player,
-        hp: hp2(player_hp),
-        max_hp: hp2(player_max_hp),
+        hp: round_hp(player_hp),
+        max_hp: round_hp(player_max_hp),
         atk: player_atk,
         matk: player_matk,
         def: player_def,
@@ -50,8 +47,8 @@ pub fn create_battle(
         units.push(Unit {
             id: idx + 1,
             team: Team::Enemy,
-            hp: hp2(enemy_hp),
-            max_hp: hp2(enemy_hp),
+            hp: round_hp(enemy_hp),
+            max_hp: round_hp(enemy_hp),
             atk: enemy_atk,
             matk: enemy_matk,
             def: enemy_def,
@@ -171,7 +168,7 @@ pub fn run_battle(
             );
 
             state.units[target_idx].hp =
-                hp2((state.units[target_idx].hp - breakdown.amount).max(0.0));
+                round_hp((state.units[target_idx].hp - breakdown.amount).max(0.0));
 
             push_event(
                 logs,
