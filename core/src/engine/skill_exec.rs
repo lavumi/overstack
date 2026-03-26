@@ -2,10 +2,26 @@ use crate::engine::runtime::{ActionKind, ActiveRun, TraitOwner, TriggerContext};
 use crate::event::Event;
 use crate::log::push_event;
 use crate::model::Team;
-use crate::skill::{
-    player_skill_for_slot, skill_by_id, DamageKind, EffectSpec, SkillSpec, StatType, StatusType,
-};
+use crate::skill::{player_skill_for_slot, skill_by_id, DamageKind, EffectSpec, SkillSpec};
 use crate::trait_spec::TriggerType;
+
+struct ActionSnapshot {
+    actor_idx: usize,
+    target_idx: usize,
+    skill: &'static SkillSpec,
+    context: TriggerContext,
+}
+
+struct DamageStep {
+    damage_kind: DamageKind,
+    multiplier: f32,
+    flat: f32,
+}
+
+struct ResolvedActionLayers {
+    damage_steps: Vec<DamageStep>,
+    status_steps: Vec<EffectSpec>,
+}
 
 impl ActiveRun {
     fn choose_skill_for_action(&self, action: ActionKind) -> &'static SkillSpec {
@@ -40,68 +56,33 @@ impl ActiveRun {
             },
         );
 
-        let context_action = TriggerContext {
-            trigger_type: TriggerType::OnActionUsed,
-            owner,
-            src_idx: Some(actor_idx),
-            dst_idx: Some(target_idx),
-            applied_status: None,
+        let snapshot = ActionSnapshot {
+            actor_idx,
+            target_idx,
+            skill,
+            context: TriggerContext {
+                trigger_type: TriggerType::OnActionUsed,
+                owner,
+                src_idx: Some(actor_idx),
+                dst_idx: Some(target_idx),
+                applied_status: None,
+            },
         };
-        self.process_trait_triggers(context_action, 0, events);
+        self.process_trait_triggers(snapshot.context, 0, events);
 
+        let layers = self.resolve_action_layers(&snapshot);
+        self.execute_action_layers(&snapshot, layers, events);
+    }
+
+    fn resolve_action_layers(&mut self, snapshot: &ActionSnapshot) -> ResolvedActionLayers {
         let mut damage_amp = 1.0_f32;
+        let mut damage_steps = Vec::new();
+        let mut status_steps = Vec::new();
 
-        for effect in skill.effects {
+        for effect in snapshot.skill.effects {
             match *effect {
-                EffectSpec::DealDamage {
-                    damage_kind,
-                    multiplier,
-                    flat,
-                } => {
-                    let final_multiplier = skill.base_damage_multiplier * multiplier * damage_amp;
-                    let final_flat = skill.flat_bonus_damage.unwrap_or(0.0) + flat;
-                    let kind = match skill.id {
-                        "basic_attack" => DamageKind::Physical,
-                        _ => damage_kind,
-                    };
-                    self.apply_scaled_damage(
-                        actor_idx,
-                        target_idx,
-                        kind,
-                        final_multiplier,
-                        final_flat,
-                        0,
-                        events,
-                    );
-                }
-                EffectSpec::ApplyStatus {
-                    status_type,
-                    base_chance,
-                    duration,
-                    stacks,
-                    power,
-                } => {
-                    self.apply_status(
-                        actor_idx,
-                        target_idx,
-                        status_type,
-                        base_chance,
-                        duration,
-                        stacks,
-                        power,
-                        0,
-                        events,
-                    );
-                }
                 EffectSpec::ConditionalDamageAmp { condition, amp } => {
-                    let context = TriggerContext {
-                        trigger_type: TriggerType::OnActionUsed,
-                        owner,
-                        src_idx: Some(actor_idx),
-                        dst_idx: Some(target_idx),
-                        applied_status: None,
-                    };
-                    if self.evaluate_condition(condition, context) {
+                    if self.evaluate_condition(condition, snapshot.context) {
                         damage_amp *= amp.max(0.1);
                     }
                 }
@@ -113,100 +94,71 @@ impl ActiveRun {
                     stacks,
                     power,
                 } => {
-                    let context = TriggerContext {
-                        trigger_type: TriggerType::OnActionUsed,
-                        owner,
-                        src_idx: Some(actor_idx),
-                        dst_idx: Some(target_idx),
-                        applied_status: None,
-                    };
-                    if self.evaluate_condition(condition, context) {
-                        self.apply_status(
-                            actor_idx,
-                            target_idx,
+                    if self.evaluate_condition(condition, snapshot.context) {
+                        status_steps.push(EffectSpec::ApplyStatus {
                             status_type,
                             base_chance,
                             duration,
                             stacks,
                             power,
-                            0,
-                            events,
-                        );
+                        });
                     }
                 }
-                EffectSpec::SelfBuff {
-                    stat,
-                    amount,
-                    duration,
+                EffectSpec::DealDamage {
+                    damage_kind,
+                    multiplier,
+                    flat,
                 } => {
-                    let status_type = match stat {
-                        StatType::Attack => StatusType::Might,
-                        StatType::Speed => StatusType::Haste,
+                    let final_multiplier =
+                        snapshot.skill.base_damage_multiplier * multiplier * damage_amp;
+                    let final_flat = snapshot.skill.flat_bonus_damage.unwrap_or(0.0) + flat;
+                    let final_kind = match snapshot.skill.id {
+                        "basic_attack" => DamageKind::Physical,
+                        _ => damage_kind,
                     };
-                    self.apply_status(
-                        actor_idx,
-                        actor_idx,
-                        status_type,
-                        1.0,
-                        duration,
-                        amount.max(1.0) as u32,
-                        amount,
-                        0,
-                        events,
-                    );
+                    damage_steps.push(DamageStep {
+                        damage_kind: final_kind,
+                        multiplier: final_multiplier,
+                        flat: final_flat,
+                    });
                 }
-                EffectSpec::AddProcBonus { amount } => {
-                    self.add_proc_bonus(actor_idx, amount);
-                }
-                EffectSpec::AddResBonus { amount } => {
-                    self.add_res_bonus(actor_idx, amount);
-                }
-                EffectSpec::ModifyStatusPower { status_type, mul } => {
-                    self.update_status_power_mul(actor_idx, status_type, mul);
-                }
-                EffectSpec::AddStatusStacks {
-                    target,
-                    status_type,
-                    stacks,
-                } => {
-                    if let Some(dst_idx) = self.resolve_effect_target(
-                        target,
-                        TriggerContext {
-                            trigger_type: TriggerType::OnActionUsed,
-                            owner,
-                            src_idx: Some(actor_idx),
-                            dst_idx: Some(target_idx),
-                            applied_status: None,
-                        },
-                    ) {
-                        self.apply_status(
-                            actor_idx,
-                            dst_idx,
-                            status_type,
-                            1.0,
-                            1.0,
-                            stacks.max(1),
-                            1.0,
-                            0,
-                            events,
-                        );
-                    }
-                }
-                EffectSpec::DealPureDamage { target, amount } => {
-                    if let Some(dst_idx) = self.resolve_effect_target(
-                        target,
-                        TriggerContext {
-                            trigger_type: TriggerType::OnActionUsed,
-                            owner,
-                            src_idx: Some(actor_idx),
-                            dst_idx: Some(target_idx),
-                            applied_status: None,
-                        },
-                    ) {
-                        self.apply_pure_damage(actor_idx, dst_idx, amount.max(0.01), 0, events);
-                    }
-                }
+                other => status_steps.push(other),
             }
+        }
+
+        ResolvedActionLayers {
+            damage_steps,
+            status_steps,
+        }
+    }
+
+    fn execute_action_layers(
+        &mut self,
+        snapshot: &ActionSnapshot,
+        layers: ResolvedActionLayers,
+        events: &mut Vec<String>,
+    ) {
+        for step in layers.damage_steps {
+            self.apply_scaled_damage(
+                snapshot.actor_idx,
+                snapshot.target_idx,
+                step.damage_kind,
+                step.multiplier,
+                step.flat,
+                0,
+                events,
+            );
+        }
+
+        for effect in layers.status_steps {
+            let _ = self.execute_primitive_effect(
+                effect,
+                snapshot.actor_idx,
+                snapshot.target_idx,
+                snapshot.context,
+                0,
+                events,
+            );
         }
     }
 

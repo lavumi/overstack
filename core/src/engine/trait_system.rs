@@ -1,7 +1,7 @@
 use crate::engine::runtime::{ActiveRun, TraitOwner, TriggerContext, TRAIT_CHAIN_DEPTH_MAX};
 use crate::event::Event;
 use crate::log::push_event;
-use crate::skill::{DamageKind, EffectSpec, StatType, StatusType};
+use crate::skill::{DamageKind, EffectSpec};
 use crate::trait_spec::{trait_by_id, TriggerType};
 
 impl ActiveRun {
@@ -51,66 +51,6 @@ impl ActiveRun {
         }
 
         match effect {
-            EffectSpec::DealDamage {
-                damage_kind,
-                multiplier,
-                flat,
-            } => {
-                let src_idx = context
-                    .src_idx
-                    .or_else(|| self.owner_unit_idx(context.owner));
-                let dst_idx = context.dst_idx.or_else(|| {
-                    self.resolve_effect_target(crate::skill::EffectTarget::Opponent, context)
-                });
-                if let (Some(src_idx), Some(dst_idx)) = (src_idx, dst_idx) {
-                    self.apply_scaled_damage(
-                        src_idx,
-                        dst_idx,
-                        damage_kind,
-                        multiplier,
-                        flat,
-                        depth,
-                        events,
-                    );
-                    self.push_trait_effect_event(
-                        trait_name,
-                        format!("DealDamage x{multiplier:.2} +{flat}"),
-                        events,
-                    );
-                }
-            }
-            EffectSpec::ApplyStatus {
-                status_type,
-                base_chance,
-                duration,
-                stacks,
-                power,
-            } => {
-                let src_idx = context
-                    .src_idx
-                    .or_else(|| self.owner_unit_idx(context.owner));
-                let dst_idx = context.dst_idx.or_else(|| {
-                    self.resolve_effect_target(crate::skill::EffectTarget::Opponent, context)
-                });
-                if let (Some(src_idx), Some(dst_idx)) = (src_idx, dst_idx) {
-                    self.apply_status(
-                        src_idx,
-                        dst_idx,
-                        status_type,
-                        base_chance,
-                        duration,
-                        stacks,
-                        power,
-                        depth,
-                        events,
-                    );
-                    self.push_trait_effect_event(
-                        trait_name,
-                        format!("ApplyStatus {}", status_type.as_str()),
-                        events,
-                    );
-                }
-            }
             EffectSpec::ConditionalDamageAmp { condition, amp } => {
                 if self.evaluate_condition(condition, context) {
                     let next = EffectSpec::DealDamage {
@@ -140,105 +80,19 @@ impl ActiveRun {
                     self.process_trait_effect(trait_name, next, context, depth + 1, events);
                 }
             }
-            EffectSpec::SelfBuff {
-                stat,
-                amount,
-                duration,
-            } => {
-                if let Some(src_idx) = self.owner_unit_idx(context.owner) {
-                    let status_type = match stat {
-                        StatType::Attack => StatusType::Might,
-                        StatType::Speed => StatusType::Haste,
-                    };
-                    self.apply_status(
-                        src_idx,
-                        src_idx,
-                        status_type,
-                        1.0,
-                        duration,
-                        amount.max(1.0) as u32,
-                        amount,
-                        depth,
-                        events,
-                    );
-                    self.push_trait_effect_event(
-                        trait_name,
-                        format!("SelfBuff {}", status_type.as_str()),
-                        events,
-                    );
-                }
-            }
-            EffectSpec::AddProcBonus { amount } => {
-                if let Some(owner_idx) = self.owner_unit_idx(context.owner) {
-                    self.add_proc_bonus(owner_idx, amount);
-                }
-                self.push_trait_effect_event(
-                    trait_name,
-                    format!("AddProcBonus +{amount:.2}"),
-                    events,
-                );
-            }
-            EffectSpec::AddResBonus { amount } => {
-                if let Some(owner_idx) = self.owner_unit_idx(context.owner) {
-                    self.add_res_bonus(owner_idx, amount);
-                }
-                self.push_trait_effect_event(
-                    trait_name,
-                    format!("AddResBonus +{amount:.2}"),
-                    events,
-                );
-            }
-            EffectSpec::ModifyStatusPower { status_type, mul } => {
-                if let Some(owner_idx) = self.owner_unit_idx(context.owner) {
-                    self.update_status_power_mul(owner_idx, status_type, mul);
-                }
-                self.push_trait_effect_event(
-                    trait_name,
-                    format!("ModifyStatusPower {} x{mul:.2}", status_type.as_str()),
-                    events,
-                );
-            }
-            EffectSpec::AddStatusStacks {
-                target,
-                status_type,
-                stacks,
-            } => {
-                if let Some(target_idx) = self.resolve_effect_target(target, context) {
-                    let src_idx = context.src_idx.unwrap_or(target_idx);
-                    self.apply_status(
-                        src_idx,
-                        target_idx,
-                        status_type,
-                        1.0,
-                        1.0,
-                        stacks.max(1),
-                        1.0,
-                        depth,
-                        events,
-                    );
-                    self.push_trait_effect_event(
-                        trait_name,
-                        format!(
-                            "AddStatusStacks {} +{}",
-                            status_type.as_str(),
-                            stacks.max(1)
-                        ),
-                        events,
-                    );
-                }
-            }
-            EffectSpec::DealPureDamage { target, amount } => {
-                if let Some(dst_idx) = self.resolve_effect_target(target, context) {
-                    let src_idx = context
-                        .src_idx
-                        .or_else(|| self.owner_unit_idx(context.owner))
-                        .unwrap_or(dst_idx);
-                    self.apply_pure_damage(src_idx, dst_idx, amount.max(0.01), depth, events);
-                    self.push_trait_effect_event(
-                        trait_name,
-                        format!("DealPureDamage {:.2}", amount.max(0.01)),
-                        events,
-                    );
+            other => {
+                let src_idx = context
+                    .src_idx
+                    .or_else(|| self.owner_unit_idx(context.owner));
+                let dst_idx = context.dst_idx.or_else(|| {
+                    self.resolve_effect_target(crate::skill::EffectTarget::Opponent, context)
+                });
+                if let (Some(src_idx), Some(dst_idx)) = (src_idx, dst_idx) {
+                    if let Some(summary) = self
+                        .execute_primitive_effect(other, src_idx, dst_idx, context, depth, events)
+                    {
+                        self.push_trait_effect_event(trait_name, summary, events);
+                    }
                 }
             }
         }
