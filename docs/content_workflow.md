@@ -62,7 +62,8 @@ cargo test
 
 ```bash
 cd /Users/lavumi/private/overstack/core
-wasm-pack build --target web --out-dir ../site/pkg
+cargo build --target wasm32-unknown-unknown --release
+wasm-bindgen --target web --out-dir ../site/pkg target/wasm32-unknown-unknown/release/core.wasm
 ```
 
 ### 5. 실제 로그 확인

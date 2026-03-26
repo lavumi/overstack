@@ -1,6 +1,6 @@
 # Overstack
 
-Rust + `wasm-pack` 기반의 전투 시뮬레이션 코어와, 이를 브라우저에서 실행하는 정적 사이트 프로젝트입니다.
+Rust + `wasm-bindgen` 기반의 전투 시뮬레이션 코어와, 이를 브라우저에서 실행하는 정적 사이트 프로젝트입니다.
 
 핵심 방향은 다음 두 가지입니다.
 
@@ -387,17 +387,20 @@ trait 선택 UI는 아직 시작 시 1개 선택 방식이지만, 엔진 쪽에�
 사전 준비:
 
 1. Rust 설치
-2. `wasm-pack` 설치
+2. `wasm-bindgen-cli` 설치
+3. `wasm32-unknown-unknown` 타깃 설치
 
 ```bash
-cargo install wasm-pack
+cargo install wasm-bindgen-cli
+rustup target add wasm32-unknown-unknown
 ```
 
 빌드:
 
 ```bash
 cd core
-wasm-pack build --target web --out-dir ../site/pkg
+cargo build --target wasm32-unknown-unknown --release
+wasm-bindgen --target web --out-dir ../site/pkg target/wasm32-unknown-unknown/release/core.wasm
 ```
 
 ## 실행
@@ -424,7 +427,7 @@ python3 -m http.server
 
 1. `core/data/skills.json`, `core/data/traits.json`, `core/data/enemies.json` 수정
 2. 필드 규칙은 `core/data/schema.md` 참고
-3. `cargo test` 또는 `wasm-pack build --target web --out-dir ../site/pkg`
+3. `cargo test` 또는 `cargo build --target wasm32-unknown-unknown --release` 후 `wasm-bindgen --target web --out-dir ../site/pkg target/wasm32-unknown-unknown/release/core.wasm`
 4. `site`에서 동작과 로그 확인
 
 Trait 데이터 작성 시 주의:

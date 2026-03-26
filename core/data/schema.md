@@ -206,7 +206,7 @@ EnemyDef
 
 1. Add JSON entry in correct file.
 2. Ensure ID is unique.
-3. Run wasm-pack build.
+3. Run cargo wasm build and wasm-bindgen output generation.
 4. Verify no validation errors.
 5. Test in UI.
 
