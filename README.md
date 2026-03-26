@@ -319,6 +319,11 @@ Trait는 가장 형태가 다양해질 가능성이 큰 축입니다.
 즉 리팩터링의 궁극적인 목적은 단순히 `step_api.rs`를 얇게 만드는 것이 아니라,
 "콘텐츠 추가 비용을 낮추는 구조"를 만드는 것입니다.
 
+관련 문서:
+
+- primitive 카탈로그: [docs/content_primitives.md](/Users/lavumi/private/overstack/docs/content_primitives.md)
+- 추가 프로세스: [docs/content_workflow.md](/Users/lavumi/private/overstack/docs/content_workflow.md)
+
 ## Step API
 
 현재 UI가 주로 사용하는 흐름은 아래와 같습니다.
