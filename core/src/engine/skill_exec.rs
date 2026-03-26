@@ -68,7 +68,7 @@ impl ActiveRun {
                 applied_status: None,
             },
         };
-        self.process_trait_triggers(snapshot.context, 0, events);
+        self.emit_pre_action_trait_triggers(snapshot.context, 0, events);
 
         let layers = self.resolve_action_layers(&snapshot);
         self.execute_action_layers(&snapshot, layers, events);

@@ -88,7 +88,7 @@ impl ActiveRun {
             dst_idx: Some(dst_idx),
             applied_status: Some(status_type),
         };
-        self.process_trait_triggers(context, trait_depth + 1, events);
+        self.emit_post_status_trait_triggers(context, trait_depth + 1, events);
 
         let post_mul = self.status_power_mul_for(src_idx, status_type);
         let post_power = power * post_mul;
@@ -218,7 +218,7 @@ impl ActiveRun {
             dst_idx: Some(dst_idx),
             applied_status: None,
         };
-        self.process_trait_triggers(context, trait_depth + 1, events);
+        self.emit_post_damage_trait_triggers(context, trait_depth + 1, events);
     }
 
     pub(crate) fn check_and_emit_battle_end(
@@ -337,7 +337,7 @@ impl ActiveRun {
                 dst_idx: Some(unit_idx),
                 applied_status: Some(status_type),
             };
-            self.process_trait_triggers(context, 0, events);
+            self.emit_status_tick_trait_triggers(context, 0, events);
         }
 
         for (unit_idx, status_type) in pending_expire.iter().copied() {

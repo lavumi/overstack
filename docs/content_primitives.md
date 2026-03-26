@@ -100,6 +100,10 @@
 - 현재 trigger는 trait 중심
 - 스킬 자체는 "사용 시 즉시 실행" 구조이며 별도 trigger graph는 없음
 
+관련 문서:
+
+- trait timing model: [trait_timing_model.md](/Users/lavumi/private/overstack/docs/trait_timing_model.md)
+
 ## Effect
 
 현재 사용 가능한 effect:

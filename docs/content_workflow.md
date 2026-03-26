@@ -41,6 +41,7 @@
 - 기존 `Effect` 조합으로 가능한가
 - 기존 `Condition`으로 분기 가능한가
 - 기존 `Status`만으로 표현 가능한가
+- trait라면 modifier trait인지 reactive trait인지 먼저 구분했는가
 
 가능하면 코드 변경 없이 JSON만 수정한다.
 
@@ -109,6 +110,7 @@ wasm-pack build --target web --out-dir ../site/pkg
 - condition 평가: [combat_state.rs](/Users/lavumi/private/overstack/core/src/engine/combat_state.rs)
 - effect 실행: [skill_exec.rs](/Users/lavumi/private/overstack/core/src/engine/skill_exec.rs), [trait_system.rs](/Users/lavumi/private/overstack/core/src/engine/trait_system.rs)
 - 상태이상 처리: [status_system.rs](/Users/lavumi/private/overstack/core/src/engine/status_system.rs)
+- trait 시점 모델: [trait_timing_model.md](/Users/lavumi/private/overstack/docs/trait_timing_model.md)
 
 ### 4. 테스트 추가
 

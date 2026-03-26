@@ -98,7 +98,7 @@ impl ActiveRun {
         }
     }
 
-    pub(crate) fn process_trait_triggers(
+    fn dispatch_trait_triggers(
         &mut self,
         context: TriggerContext,
         depth: u8,
@@ -152,6 +152,56 @@ impl ActiveRun {
         }
     }
 
+    pub(crate) fn emit_pre_action_trait_triggers(
+        &mut self,
+        context: TriggerContext,
+        depth: u8,
+        events: &mut Vec<String>,
+    ) {
+        debug_assert_eq!(context.trigger_type, TriggerType::OnActionUsed);
+        self.dispatch_trait_triggers(context, depth, events);
+    }
+
+    pub(crate) fn emit_post_damage_trait_triggers(
+        &mut self,
+        context: TriggerContext,
+        depth: u8,
+        events: &mut Vec<String>,
+    ) {
+        debug_assert_eq!(context.trigger_type, TriggerType::OnDamageDealt);
+        self.dispatch_trait_triggers(context, depth, events);
+    }
+
+    pub(crate) fn emit_post_status_trait_triggers(
+        &mut self,
+        context: TriggerContext,
+        depth: u8,
+        events: &mut Vec<String>,
+    ) {
+        debug_assert_eq!(context.trigger_type, TriggerType::OnStatusApplied);
+        self.dispatch_trait_triggers(context, depth, events);
+    }
+
+    pub(crate) fn emit_status_tick_trait_triggers(
+        &mut self,
+        context: TriggerContext,
+        depth: u8,
+        events: &mut Vec<String>,
+    ) {
+        debug_assert_eq!(context.trigger_type, TriggerType::OnStatusTick);
+        self.dispatch_trait_triggers(context, depth, events);
+    }
+
+    pub(crate) fn emit_battle_start_trait_triggers(
+        &mut self,
+        context: TriggerContext,
+        depth: u8,
+        events: &mut Vec<String>,
+    ) {
+        debug_assert_eq!(context.trigger_type, TriggerType::OnBattleStart);
+        self.dispatch_trait_triggers(context, depth, events);
+    }
+
     pub(crate) fn emit_battle_end_triggers(
         &mut self,
         result: &'static str,
@@ -165,6 +215,6 @@ impl ActiveRun {
             dst_idx: None,
             applied_status: None,
         };
-        self.process_trait_triggers(context, 0, events);
+        self.dispatch_trait_triggers(context, 0, events);
     }
 }

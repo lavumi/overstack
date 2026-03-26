@@ -7,6 +7,29 @@ pub use crate::data::specs::{TraitId, TraitSpec, TriggerType};
 pub const TRAIT_WEIGHT_BASE: f32 = 100.0;
 pub const TRAIT_WEIGHT_P: f32 = 1.3;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TraitTriggerPhase {
+    PreActionCalc,
+    PostDamage,
+    PostStatus,
+    StatusTick,
+    BattleBoundary,
+}
+
+impl TriggerType {
+    pub fn phase(self) -> TraitTriggerPhase {
+        match self {
+            TriggerType::OnActionUsed => TraitTriggerPhase::PreActionCalc,
+            TriggerType::OnDamageDealt => TraitTriggerPhase::PostDamage,
+            TriggerType::OnStatusApplied => TraitTriggerPhase::PostStatus,
+            TriggerType::OnStatusTick => TraitTriggerPhase::StatusTick,
+            TriggerType::OnBattleStart | TriggerType::OnBattleEnd | TriggerType::OnTurnStart => {
+                TraitTriggerPhase::BattleBoundary
+            }
+        }
+    }
+}
+
 pub fn trait_weight(cost: u32) -> f32 {
     let safe_cost = cost.max(1) as f32;
     TRAIT_WEIGHT_BASE / safe_cost.powf(TRAIT_WEIGHT_P)
@@ -110,7 +133,9 @@ pub fn sample_trait_choices(
 mod tests {
     use std::collections::HashSet;
 
-    use super::{calc_traits_cost, sample_trait_choices, trait_weight};
+    use super::{
+        calc_traits_cost, sample_trait_choices, trait_weight, TraitTriggerPhase, TriggerType,
+    };
     use crate::rng::SimpleRng;
 
     #[test]
@@ -133,5 +158,21 @@ mod tests {
     fn cost_sum_uses_trait_specs() {
         let total = calc_traits_cost(&["cinder_scholar", "overcharge"]);
         assert!(total > 0);
+    }
+
+    #[test]
+    fn trigger_types_map_to_expected_phases() {
+        assert_eq!(
+            TriggerType::OnActionUsed.phase(),
+            TraitTriggerPhase::PreActionCalc
+        );
+        assert_eq!(
+            TriggerType::OnDamageDealt.phase(),
+            TraitTriggerPhase::PostDamage
+        );
+        assert_eq!(
+            TriggerType::OnStatusApplied.phase(),
+            TraitTriggerPhase::PostStatus
+        );
     }
 }

@@ -323,6 +323,7 @@ Trait는 가장 형태가 다양해질 가능성이 큰 축입니다.
 
 - primitive 카탈로그: [docs/content_primitives.md](/Users/lavumi/private/overstack/docs/content_primitives.md)
 - 추가 프로세스: [docs/content_workflow.md](/Users/lavumi/private/overstack/docs/content_workflow.md)
+- trait timing model: [docs/trait_timing_model.md](/Users/lavumi/private/overstack/docs/trait_timing_model.md)
 
 ## Step API
 

@@ -271,7 +271,7 @@ impl ActiveRun {
             dst_idx: None,
             applied_status: None,
         };
-        self.process_trait_triggers(context, 0, events);
+        self.emit_battle_start_trait_triggers(context, 0, events);
     }
 }
 
