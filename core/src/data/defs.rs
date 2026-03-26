@@ -29,8 +29,6 @@ pub struct SkillDef {
     pub id: String,
     pub name: String,
     pub description: String,
-    pub base_damage_multiplier: f32,
-    pub flat_bonus_damage: Option<f32>,
     #[serde(default)]
     pub effects: Vec<EffectDef>,
     pub tags: Option<Vec<String>>,

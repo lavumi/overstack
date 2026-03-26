@@ -50,8 +50,6 @@ fn compile_skills(defs: &EmbeddedDefs, report: &mut ErrorReport) -> SkillRegistr
             id,
             name: leak_str(def.name.clone()),
             description: leak_str(def.description.clone()),
-            base_damage_multiplier: def.base_damage_multiplier,
-            flat_bonus_damage: def.flat_bonus_damage,
             damage_kind: DamageKind::Physical,
             effects: leak_effects(effects),
             tags: leak_strings(def.tags.clone().unwrap_or_default()),
@@ -297,6 +295,18 @@ fn compile_effect(def: &EffectDef, report: &mut ErrorReport, path: String) -> Op
                 format!("{path}.status"),
             )?,
             stacks: def.stacks.unwrap_or(0),
+        }),
+        "RemoveStatus" => Some(EffectSpec::RemoveStatus {
+            target: parse_target(
+                def.target.as_deref().unwrap_or("Dst"),
+                report,
+                format!("{path}.target"),
+            )?,
+            status_type: parse_status(
+                def.status.as_deref().unwrap_or(""),
+                report,
+                format!("{path}.status"),
+            )?,
         }),
         "DealPureDamage" => Some(EffectSpec::DealPureDamage {
             target: parse_target(

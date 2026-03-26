@@ -225,7 +225,11 @@ pub fn set_active_trait(handle: u32, trait_id: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::engine::runtime::{ActionKind, ActiveRun, TRAIT_CHAIN_DEPTH_MAX};
+    use crate::engine::runtime::{
+        ActionKind, ActiveRun, TraitOwner, TriggerContext, TRAIT_CHAIN_DEPTH_MAX,
+    };
+    use crate::skill::{EffectSpec, StatusType};
+    use crate::trait_spec::TriggerType;
 
     #[test]
     fn ember_lash_applies_burn_sometimes_with_fixed_seed() {
@@ -340,5 +344,39 @@ mod tests {
             has_enemy_trigger,
             "expected enemy trait trigger event from battle start"
         );
+    }
+
+    #[test]
+    fn remove_status_effect_clears_existing_status() {
+        let mut run = ActiveRun::new(1234, 1);
+        let mut events = Vec::new();
+        run.ensure_battle_started(&mut events);
+
+        run.apply_status(0, 0, StatusType::Burn, 1.0, 4.0, 1, 1.0, 0, &mut events);
+        assert!(run.has_status(0, StatusType::Burn));
+
+        let removed = run.execute_primitive_effect(
+            EffectSpec::RemoveStatus {
+                target: crate::skill::EffectTarget::Dst,
+                status_type: StatusType::Burn,
+            },
+            0,
+            0,
+            TriggerContext {
+                trigger_type: TriggerType::OnActionUsed,
+                owner: TraitOwner::Player,
+                src_idx: Some(0),
+                dst_idx: Some(0),
+                applied_status: None,
+            },
+            0,
+            &mut events,
+        );
+
+        assert_eq!(removed.as_deref(), Some("RemoveStatus Burn"));
+        assert!(!run.has_status(0, StatusType::Burn));
+        assert!(events.iter().any(|line| {
+            line.contains("\"kind\":\"StatusExpired\"") && line.contains("\"status\":\"Burn\"")
+        }));
     }
 }

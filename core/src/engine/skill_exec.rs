@@ -109,9 +109,8 @@ impl ActiveRun {
                     multiplier,
                     flat,
                 } => {
-                    let final_multiplier =
-                        snapshot.skill.base_damage_multiplier * multiplier * damage_amp;
-                    let final_flat = snapshot.skill.flat_bonus_damage.unwrap_or(0.0) + flat;
+                    let final_multiplier = multiplier * damage_amp;
+                    let final_flat = flat;
                     let final_kind = match snapshot.skill.id {
                         "basic_attack" => DamageKind::Physical,
                         _ => damage_kind,

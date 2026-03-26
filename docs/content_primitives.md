@@ -117,6 +117,7 @@
 - `AddResBonus`
 - `ModifyStatusPower`
 - `AddStatusStacks`
+- `RemoveStatus`
 - `DealPureDamage`
 
 ### DealDamage
@@ -222,6 +223,18 @@
 
 - "Freeze 걸리면 Break +1"
 - "기존 상태를 더 두껍게 쌓기"
+
+### RemoveStatus
+
+설명:
+
+- 대상의 특정 상태이상을 제거한다
+
+적합한 경우:
+
+- "Burn 제거"
+- "디버프 정리"
+- "상태 소비형 스킬의 첫 단계"
 
 ### DealPureDamage
 

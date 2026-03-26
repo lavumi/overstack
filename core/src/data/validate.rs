@@ -13,6 +13,7 @@ const EFFECT_TYPES: &[&str] = &[
     "AddResBonus",
     "ModifyStatusPower",
     "AddStatusStacks",
+    "RemoveStatus",
     "DealPureDamage",
 ];
 const DAMAGE_KINDS: &[&str] = &["Physical", "Magical"];
@@ -110,12 +111,6 @@ pub fn validate_defs(defs: &EmbeddedDefs) -> Result<(), ErrorReport> {
         }
         if skill.name.trim().is_empty() {
             report.push(format!("skills.skills[{i}].name"), "must not be empty");
-        }
-        if !(0.0..=10.0).contains(&skill.base_damage_multiplier) {
-            report.push(
-                format!("skills.skills[{i}].base_damage_multiplier"),
-                "must be in range 0..=10",
-            );
         }
 
         for (j, effect) in skill.effects.iter().enumerate() {
@@ -310,6 +305,19 @@ fn validate_effect(effect: &EffectDef, path: &str, report: &mut ErrorReport) {
                 report.push(format!("{path}.stacks"), "required");
             }
         }
+        "RemoveStatus" => {
+            validate_required_status(effect.status.as_deref(), &format!("{path}.status"), report);
+            if effect.target.is_none() {
+                report.push(format!("{path}.target"), "required");
+            } else if let Some(target) = effect.target.as_deref() {
+                if !EFFECT_TARGETS.contains(&target) {
+                    report.push(
+                        format!("{path}.target"),
+                        format!("unknown target '{target}'"),
+                    );
+                }
+            }
+        }
         "DealPureDamage" => {
             if effect.target.is_none() {
                 report.push(format!("{path}.target"), "required");
@@ -423,7 +431,6 @@ mod tests {
                   "id":"s1",
                   "name":"X",
                   "description":"x",
-                  "base_damage_multiplier":1.0,
                   "effects":[{"type":"ApplyStatus","status":"Bunr","chance":0.3,"duration":1.0,"stacks":1,"power":1.0}]
                 }
               ],
@@ -479,5 +486,42 @@ mod tests {
             .errors
             .iter()
             .any(|e| e.path == "traits.traits[0].cost" && e.message == "required"));
+    }
+
+    #[test]
+    fn remove_status_requires_target_and_status() {
+        let mut parse_report = ErrorReport::default();
+        let skills = parse_json_file::<SkillsFileDef>(
+            "skills",
+            r#"{
+              "skills": [
+                {
+                  "id":"s1",
+                  "name":"X",
+                  "description":"x",
+                  "effects":[{"type":"RemoveStatus"}]
+                }
+              ],
+              "player_loadout":["s1","s1","s1","s1"]
+            }"#,
+            &mut parse_report,
+        );
+        assert!(parse_report.is_empty());
+
+        let defs = EmbeddedDefs {
+            skills,
+            traits: TraitsFileDef::default(),
+            enemies: EnemiesFileDef::default(),
+        };
+
+        let report = validate_defs(&defs).expect_err("expected RemoveStatus validation failure");
+        assert!(report
+            .errors
+            .iter()
+            .any(|e| e.path == "skills.skills[0].effects[0].target" && e.message == "required"));
+        assert!(report
+            .errors
+            .iter()
+            .any(|e| e.path == "skills.skills[0].effects[0].status" && e.message == "required"));
     }
 }

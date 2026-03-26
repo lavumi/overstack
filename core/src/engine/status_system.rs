@@ -101,6 +101,33 @@ impl ActiveRun {
         }
     }
 
+    pub(crate) fn remove_status(
+        &mut self,
+        dst_idx: usize,
+        status_type: StatusType,
+        events: &mut Vec<String>,
+    ) -> bool {
+        let mut removed = false;
+        if let Some(row) = self.statuses_mut(dst_idx) {
+            let before = row.len();
+            row.retain(|s| s.status_type != status_type);
+            removed = row.len() != before;
+        }
+
+        if removed {
+            let dst = self.actor_label_for_idx(dst_idx);
+            push_event(
+                events,
+                Event::StatusExpired {
+                    dst,
+                    status: status_type.as_str(),
+                },
+            );
+        }
+
+        removed
+    }
+
     pub(crate) fn apply_scaled_damage(
         &mut self,
         src_idx: usize,

@@ -111,6 +111,20 @@ impl ActiveRun {
                     None
                 }
             }
+            EffectSpec::RemoveStatus {
+                target,
+                status_type,
+            } => {
+                if let Some(target_idx) = self.resolve_effect_target(target, context) {
+                    if self.remove_status(target_idx, status_type, events) {
+                        Some(format!("RemoveStatus {}", status_type.as_str()))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
             EffectSpec::DealPureDamage { target, amount } => {
                 if let Some(dst_idx) = self.resolve_effect_target(target, context) {
                     self.apply_pure_damage(source_idx, dst_idx, amount.max(0.01), depth, events);

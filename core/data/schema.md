@@ -33,8 +33,6 @@ SkillDef
   "id": "sk_ember_lash",
   "name": "Ember Lash",
   "description": "Burns the enemy.",
-  "base_damage_multiplier": 1.0,
-  "flat_bonus_damage": 0,
   "effects": [ EffectDef, EffectDef ],
   "tags": ["fire", "dot"]
 }
@@ -44,8 +42,6 @@ Fields:
 id                     string   required
 name                   string   required
 description            string   required
-base_damage_multiplier float    required
-flat_bonus_damage      int      optional
 effects                array    required
 tags                   string[] optional
 
@@ -88,6 +84,13 @@ ConditionalDamageAmp
   "type": "ConditionalDamageAmp",
   "condition": ConditionDef,
   "multiplier": 0.2
+}
+
+RemoveStatus
+{
+  "type": "RemoveStatus",
+  "target": "Dst",
+  "status": "Burn"
 }
 
 ============================================================

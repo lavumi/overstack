@@ -123,6 +123,10 @@ pub enum EffectSpec {
         status_type: StatusType,
         stacks: u32,
     },
+    RemoveStatus {
+        target: EffectTarget,
+        status_type: StatusType,
+    },
     DealPureDamage {
         target: EffectTarget,
         amount: f32,
@@ -134,8 +138,6 @@ pub struct SkillSpec {
     pub id: SkillId,
     pub name: &'static str,
     pub description: &'static str,
-    pub base_damage_multiplier: f32,
-    pub flat_bonus_damage: Option<f32>,
     pub damage_kind: DamageKind,
     pub effects: &'static [EffectSpec],
     pub tags: &'static [&'static str],

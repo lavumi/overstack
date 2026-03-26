@@ -24,8 +24,6 @@ pub fn player_skill_for_slot(slot: u32) -> &'static SkillSpec {
             id: "basic_attack",
             name: "Basic Attack",
             description: "Fallback basic attack",
-            base_damage_multiplier: 1.0,
-            flat_bonus_damage: Some(0.0),
             damage_kind: DamageKind::Physical,
             effects: &EMPTY_EFFECTS,
             tags: &EMPTY_TAGS,
