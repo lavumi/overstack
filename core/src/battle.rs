@@ -170,7 +170,8 @@ pub fn run_battle(
                 },
             );
 
-            state.units[target_idx].hp = hp2((state.units[target_idx].hp - breakdown.amount).max(0.0));
+            state.units[target_idx].hp =
+                hp2((state.units[target_idx].hp - breakdown.amount).max(0.0));
 
             push_event(
                 logs,

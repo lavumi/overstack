@@ -4,8 +4,8 @@ use super::defs::{ConditionDef, EffectDef, EmbeddedDefs};
 use super::errors::ErrorReport;
 use super::registry::{EnemyRegistry, GameData, SkillRegistry, TraitRegistry};
 use super::specs::{
-    Condition, DamageKind, EffectSpec, EffectTarget, EnemySpec, SkillId, SkillSpec, StatType, StatusType,
-    TraitId, TraitSpec, TriggerRule, TriggerType,
+    Condition, DamageKind, EffectSpec, EffectTarget, EnemySpec, SkillId, SkillSpec, StatType,
+    StatusType, TraitId, TraitSpec, TriggerRule, TriggerType,
 };
 
 pub fn compile_defs(defs: &EmbeddedDefs) -> Result<GameData, ErrorReport> {
@@ -74,7 +74,10 @@ fn compile_traits(defs: &EmbeddedDefs, report: &mut ErrorReport) -> TraitRegistr
             let trigger = match parse_trigger_type(&rule.on) {
                 Some(v) => v,
                 None => {
-                    report.push(format!("{path}.on"), format!("unknown trigger '{}'", rule.on));
+                    report.push(
+                        format!("{path}.on"),
+                        format!("unknown trigger '{}'", rule.on),
+                    );
                     continue;
                 }
             };
@@ -101,6 +104,7 @@ fn compile_traits(defs: &EmbeddedDefs, report: &mut ErrorReport) -> TraitRegistr
             id,
             name: leak_str(def.name.clone()),
             description: leak_str(def.description.clone()),
+            cost: def.cost.unwrap_or(1),
             pool: leak_strings(def.pool.clone().unwrap_or_default()),
             triggers: leak_trigger_rules(rules),
         };
@@ -205,25 +209,45 @@ fn compile_enemy_trait_pool(
 fn compile_effect(def: &EffectDef, report: &mut ErrorReport, path: String) -> Option<EffectSpec> {
     match def.effect_type.as_str() {
         "DealDamage" => Some(EffectSpec::DealDamage {
-            damage_kind: parse_damage_kind(def.damage_kind.as_deref().unwrap_or("Physical"), report, format!("{path}.damage_kind"))
-                .unwrap_or(DamageKind::Physical),
+            damage_kind: parse_damage_kind(
+                def.damage_kind.as_deref().unwrap_or("Physical"),
+                report,
+                format!("{path}.damage_kind"),
+            )
+            .unwrap_or(DamageKind::Physical),
             multiplier: def.multiplier.unwrap_or(1.0),
             flat: def.flat.unwrap_or(0.0),
         }),
         "ApplyStatus" => Some(EffectSpec::ApplyStatus {
-            status_type: parse_status(def.status.as_deref().unwrap_or(""), report, format!("{path}.status"))?,
+            status_type: parse_status(
+                def.status.as_deref().unwrap_or(""),
+                report,
+                format!("{path}.status"),
+            )?,
             base_chance: def.chance.unwrap_or(0.0),
             duration: def.duration.unwrap_or(0.0),
             stacks: def.stacks.unwrap_or(0),
             power: def.power.unwrap_or(0.0),
         }),
         "ConditionalDamageAmp" => Some(EffectSpec::ConditionalDamageAmp {
-            condition: compile_condition_opt(def.condition.as_ref(), report, format!("{path}.condition"))?,
+            condition: compile_condition_opt(
+                def.condition.as_ref(),
+                report,
+                format!("{path}.condition"),
+            )?,
             amp: def.multiplier.unwrap_or(1.0),
         }),
         "ConditionalApplyStatus" => Some(EffectSpec::ConditionalApplyStatus {
-            condition: compile_condition_opt(def.condition.as_ref(), report, format!("{path}.condition"))?,
-            status_type: parse_status(def.status.as_deref().unwrap_or(""), report, format!("{path}.status"))?,
+            condition: compile_condition_opt(
+                def.condition.as_ref(),
+                report,
+                format!("{path}.condition"),
+            )?,
+            status_type: parse_status(
+                def.status.as_deref().unwrap_or(""),
+                report,
+                format!("{path}.status"),
+            )?,
             base_chance: def.chance.unwrap_or(0.0),
             duration: def.duration.unwrap_or(0.0),
             stacks: def.stacks.unwrap_or(0),
@@ -234,7 +258,10 @@ fn compile_effect(def: &EffectDef, report: &mut ErrorReport, path: String) -> Op
                 "Attack" => StatType::Attack,
                 "Speed" => StatType::Speed,
                 unknown => {
-                    report.push(format!("{path}.stat"), format!("unknown stat '{}'", unknown));
+                    report.push(
+                        format!("{path}.stat"),
+                        format!("unknown stat '{}'", unknown),
+                    );
                     return None;
                 }
             };
@@ -251,20 +278,39 @@ fn compile_effect(def: &EffectDef, report: &mut ErrorReport, path: String) -> Op
             amount: def.amount.unwrap_or(0.0),
         }),
         "ModifyStatusPower" => Some(EffectSpec::ModifyStatusPower {
-            status_type: parse_status(def.status.as_deref().unwrap_or(""), report, format!("{path}.status"))?,
+            status_type: parse_status(
+                def.status.as_deref().unwrap_or(""),
+                report,
+                format!("{path}.status"),
+            )?,
             mul: def.multiplier.unwrap_or(1.0),
         }),
         "AddStatusStacks" => Some(EffectSpec::AddStatusStacks {
-            target: parse_target(def.target.as_deref().unwrap_or("Dst"), report, format!("{path}.target"))?,
-            status_type: parse_status(def.status.as_deref().unwrap_or(""), report, format!("{path}.status"))?,
+            target: parse_target(
+                def.target.as_deref().unwrap_or("Dst"),
+                report,
+                format!("{path}.target"),
+            )?,
+            status_type: parse_status(
+                def.status.as_deref().unwrap_or(""),
+                report,
+                format!("{path}.status"),
+            )?,
             stacks: def.stacks.unwrap_or(0),
         }),
         "DealPureDamage" => Some(EffectSpec::DealPureDamage {
-            target: parse_target(def.target.as_deref().unwrap_or("Dst"), report, format!("{path}.target"))?,
+            target: parse_target(
+                def.target.as_deref().unwrap_or("Dst"),
+                report,
+                format!("{path}.target"),
+            )?,
             amount: def.amount.unwrap_or(0.0),
         }),
         unknown => {
-            report.push(format!("{path}.type"), format!("unknown effect '{}'", unknown));
+            report.push(
+                format!("{path}.type"),
+                format!("unknown effect '{}'", unknown),
+            );
             None
         }
     }
@@ -287,14 +333,22 @@ fn compile_condition(def: &ConditionDef, report: &mut ErrorReport, path: String)
         "OwnerIsEnemy" => Condition::OwnerIsEnemy,
         "SrcIsOwner" => Condition::SrcIsOwner,
         "DstIsOwner" => Condition::DstIsOwner,
-        "AppliedStatusIs" => parse_status(def.status.as_deref().unwrap_or(""), report, format!("{path}.status"))
-            .map(Condition::AppliedStatusIs)
-            .unwrap_or(Condition::Always),
+        "AppliedStatusIs" => parse_status(
+            def.status.as_deref().unwrap_or(""),
+            report,
+            format!("{path}.status"),
+        )
+        .map(Condition::AppliedStatusIs)
+        .unwrap_or(Condition::Always),
         "RandomRollBelow" => Condition::RandomRollBelow(def.p.unwrap_or(0.0)),
         "TargetHPBelow" => Condition::TargetHPBelow(def.ratio.unwrap_or(0.0)),
-        "TargetHasStatus" => parse_status(def.status.as_deref().unwrap_or(""), report, format!("{path}.status"))
-            .map(Condition::TargetHasStatus)
-            .unwrap_or(Condition::Always),
+        "TargetHasStatus" => parse_status(
+            def.status.as_deref().unwrap_or(""),
+            report,
+            format!("{path}.status"),
+        )
+        .map(Condition::TargetHasStatus)
+        .unwrap_or(Condition::Always),
         "TargetStatusCountAtLeast" => Condition::TargetStatusCountAtLeast(def.n.unwrap_or(0)),
         "All" => {
             let values = def
@@ -304,14 +358,19 @@ fn compile_condition(def: &ConditionDef, report: &mut ErrorReport, path: String)
                     items
                         .iter()
                         .enumerate()
-                        .map(|(i, item)| compile_condition(item, report, format!("{path}.all[{i}]")))
+                        .map(|(i, item)| {
+                            compile_condition(item, report, format!("{path}.all[{i}]"))
+                        })
                         .collect::<Vec<_>>()
                 })
                 .unwrap_or_default();
             Condition::All(leak_conditions(values))
         }
         unknown => {
-            report.push(format!("{path}.type"), format!("unknown condition '{}'", unknown));
+            report.push(
+                format!("{path}.type"),
+                format!("unknown condition '{}'", unknown),
+            );
             Condition::Always
         }
     }

@@ -92,10 +92,7 @@ impl Event {
                 )
             }
             Event::TurnReady { actor } => {
-                format!(
-                    r#"{{"kind":"TurnReady","actor":"{}"}}"#,
-                    escape_json(actor)
-                )
+                format!(r#"{{"kind":"TurnReady","actor":"{}"}}"#, escape_json(actor))
             }
             Event::ActionUsed { actor, action_name } => {
                 format!(

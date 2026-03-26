@@ -119,13 +119,26 @@ pub fn validate_defs(defs: &EmbeddedDefs) -> Result<(), ErrorReport> {
         }
 
         for (j, effect) in skill.effects.iter().enumerate() {
-            validate_effect(effect, &format!("skills.skills[{i}].effects[{j}]"), &mut report);
+            validate_effect(
+                effect,
+                &format!("skills.skills[{i}].effects[{j}]"),
+                &mut report,
+            );
         }
     }
 
     for (i, trait_def) in defs.traits.traits.iter().enumerate() {
         if trait_def.id.trim().is_empty() {
             report.push(format!("traits.traits[{i}].id"), "must not be empty");
+        }
+        match trait_def.cost {
+            Some(0) => {
+                report.push(format!("traits.traits[{i}].cost"), "must be >= 1");
+            }
+            Some(_) => {}
+            None => {
+                report.push(format!("traits.traits[{i}].cost"), "required");
+            }
         }
         if let Some(pool) = &trait_def.pool {
             for (j, p) in pool.iter().enumerate() {
@@ -189,7 +202,11 @@ pub fn validate_defs(defs: &EmbeddedDefs) -> Result<(), ErrorReport> {
     }
 }
 
-fn validate_duplicate_ids<'a>(ids: impl Iterator<Item = &'a str>, namespace: &str, report: &mut ErrorReport) {
+fn validate_duplicate_ids<'a>(
+    ids: impl Iterator<Item = &'a str>,
+    namespace: &str,
+    report: &mut ErrorReport,
+) {
     let mut seen = HashSet::new();
     for id in ids {
         if !seen.insert(id.to_string()) {
@@ -283,7 +300,10 @@ fn validate_effect(effect: &EffectDef, path: &str, report: &mut ErrorReport) {
                 report.push(format!("{path}.target"), "required");
             } else if let Some(target) = effect.target.as_deref() {
                 if !EFFECT_TARGETS.contains(&target) {
-                    report.push(format!("{path}.target"), format!("unknown target '{target}'"));
+                    report.push(
+                        format!("{path}.target"),
+                        format!("unknown target '{target}'"),
+                    );
                 }
             }
             if effect.stacks.is_none() {
@@ -295,7 +315,10 @@ fn validate_effect(effect: &EffectDef, path: &str, report: &mut ErrorReport) {
                 report.push(format!("{path}.target"), "required");
             } else if let Some(target) = effect.target.as_deref() {
                 if !EFFECT_TARGETS.contains(&target) {
-                    report.push(format!("{path}.target"), format!("unknown target '{target}'"));
+                    report.push(
+                        format!("{path}.target"),
+                        format!("unknown target '{target}'"),
+                    );
                 }
             }
             if effect.amount.is_none() {
@@ -385,7 +408,9 @@ fn validate_required_non_negative(v: Option<f32>, path: &str, report: &mut Error
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::data::defs::{parse_json_file, EmbeddedDefs, EnemiesFileDef, SkillsFileDef, TraitsFileDef};
+    use crate::data::defs::{
+        parse_json_file, EmbeddedDefs, EnemiesFileDef, SkillsFileDef, TraitsFileDef,
+    };
 
     #[test]
     fn invalid_status_typo_reports_error() {
@@ -417,11 +442,42 @@ mod tests {
         let result = validate_defs(&defs);
         assert!(result.is_err());
         let report = result.err().unwrap_or_default();
-        assert!(
-            report
-                .errors
-                .iter()
-                .any(|e| e.path.contains("status") && e.message.contains("unknown status"))
+        assert!(report
+            .errors
+            .iter()
+            .any(|e| e.path.contains("status") && e.message.contains("unknown status")));
+    }
+
+    #[test]
+    fn missing_trait_cost_reports_path() {
+        let mut parse_report = ErrorReport::default();
+        let traits = parse_json_file::<TraitsFileDef>(
+            "traits",
+            r#"{
+              "traits": [
+                {
+                  "id":"t1",
+                  "name":"Trait One",
+                  "description":"x",
+                  "pool":["player"],
+                  "triggers":[]
+                }
+              ]
+            }"#,
+            &mut parse_report,
         );
+        assert!(parse_report.is_empty());
+
+        let defs = EmbeddedDefs {
+            skills: SkillsFileDef::default(),
+            traits,
+            enemies: EnemiesFileDef::default(),
+        };
+
+        let report = validate_defs(&defs).expect_err("expected missing cost to fail validation");
+        assert!(report
+            .errors
+            .iter()
+            .any(|e| e.path == "traits.traits[0].cost" && e.message == "required"));
     }
 }

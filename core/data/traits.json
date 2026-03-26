@@ -5,6 +5,7 @@
       "id": "cinder_scholar",
       "name": "Cinder Scholar",
       "description": "Burn applied by player is stronger.",
+      "cost": 4,
       "pool": ["player"],
       "triggers": [
         {
@@ -29,6 +30,7 @@
       "id": "frozen_momentum",
       "name": "Frozen Momentum",
       "description": "Applying Freeze adds Break stacks.",
+      "cost": 5,
       "pool": ["player"],
       "triggers": [
         {
@@ -54,6 +56,7 @@
       "id": "overcharge",
       "name": "Overcharge",
       "description": "Applying Shock deals bonus pure damage.",
+      "cost": 6,
       "pool": ["player"],
       "triggers": [
         {
@@ -78,6 +81,7 @@
       "id": "ruthless",
       "name": "Ruthless",
       "description": "Targets with 2+ statuses take extra damage.",
+      "cost": 8,
       "pool": ["player"],
       "triggers": [
         {
@@ -102,6 +106,7 @@
       "id": "shatterpoint",
       "name": "Shatterpoint",
       "description": "Break on frozen targets may stun.",
+      "cost": 7,
       "pool": ["player"],
       "triggers": [
         {
@@ -133,6 +138,7 @@
       "id": "enemy_iron_shell",
       "name": "Iron Shell",
       "description": "Enemy starts battle with extra resistance.",
+      "cost": 9,
       "pool": ["enemy"],
       "triggers": [
         {

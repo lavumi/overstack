@@ -129,8 +129,17 @@ TraitDef
   "id": "tr_cinder_scholar",
   "name": "Cinder Scholar",
   "description": "Burn effects are stronger.",
+  "cost": 4,
   "triggers": [ TriggerRule ]
 }
+
+Fields:
+
+id                     string   required
+name                   string   required
+description            string   required
+cost                   uint     required, must be >= 1
+triggers               array    required
 
 ------------------------------------------------------------
 TriggerRule
@@ -183,6 +192,7 @@ EnemyDef
 - All referenced IDs must exist.
 - Unknown effect/condition/trigger types must fail validation.
 - Duplicate IDs must fail validation.
+- Trait cost must be present and >= 1.
 - Probability must be 0.0 ~ 1.0.
 - Duration must be >= 0.
 - Stacks must be >= 0.
@@ -207,4 +217,3 @@ EnemyDef
 - Area effects
 - Buff duration modifiers
 - Meta progression modifiers
-

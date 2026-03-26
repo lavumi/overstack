@@ -41,6 +41,7 @@ pub struct TraitDef {
     pub id: String,
     pub name: String,
     pub description: String,
+    pub cost: Option<u32>,
     pub pool: Option<Vec<String>>,
     #[serde(default)]
     pub triggers: Vec<TriggerRuleDef>,

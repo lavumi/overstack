@@ -7,9 +7,11 @@ use crate::data::{load_embedded_game_data, ErrorReport, GameData};
 use crate::event::Event;
 use crate::log::push_event;
 use crate::model::{BattleState, NodeType, PlayerInitStats, RunState};
+use crate::rng::SimpleRng;
 use crate::skill::{player_skill_names, StatusType};
 use crate::trait_spec::{
-    active_trait_names, selectable_trait_ids, selectable_trait_names, trait_by_id, TraitId, TriggerType,
+    active_trait_names, calc_traits_cost as calc_selected_traits_cost, sample_trait_choices,
+    selectable_trait_ids, selectable_trait_names, trait_by_id, TraitId, TriggerType,
 };
 
 mod manager;
@@ -172,7 +174,11 @@ impl ActiveRun {
         Self::new_with_stats(seed, max_nodes, None)
     }
 
-    pub(crate) fn new_with_stats(seed: u64, max_nodes: u32, player_stats: Option<PlayerInitStats>) -> Self {
+    pub(crate) fn new_with_stats(
+        seed: u64,
+        max_nodes: u32,
+        player_stats: Option<PlayerInitStats>,
+    ) -> Self {
         let (game_data, data_error) = match load_embedded_game_data() {
             Ok(data) => (Some(data), None),
             Err(err) => (None, Some(err)),
@@ -222,12 +228,32 @@ impl ActiveRun {
     }
 
     pub(crate) fn set_single_active_trait(&mut self, trait_id: &str) -> bool {
-        let Some(spec) = trait_by_id(trait_id) else {
-            return false;
-        };
-        self.player_traits.clear();
-        self.player_traits.push(spec.id);
+        self.apply_traits_to_run(&[trait_id])
+    }
+
+    pub(crate) fn apply_traits_to_run(&mut self, selected_trait_ids: &[&str]) -> bool {
+        let mut next_traits = Vec::new();
+
+        for trait_id in selected_trait_ids {
+            let Some(spec) = trait_by_id(trait_id) else {
+                return false;
+            };
+            if !next_traits.contains(&spec.id) {
+                next_traits.push(spec.id);
+            }
+        }
+
+        self.player_traits = next_traits;
         true
+    }
+
+    pub(crate) fn calc_traits_cost(&self, selected_trait_ids: &[&str]) -> Option<u32> {
+        let mut resolved = Vec::new();
+        for trait_id in selected_trait_ids {
+            let spec = trait_by_id(trait_id)?;
+            resolved.push(spec.id);
+        }
+        Some(calc_selected_traits_cost(&resolved))
     }
 
     fn roll_enemy_traits(&mut self, node_type: NodeType) -> Vec<TraitId> {
@@ -244,8 +270,8 @@ impl ActiveRun {
         };
         let min_pick: usize = 1;
         let span = max_pick.saturating_sub(min_pick) + 1;
-        let count = (min_pick + self.run.rng.range_usize(span))
-            .min(game_data.enemy_trait_pool.len());
+        let count =
+            (min_pick + self.run.rng.range_usize(span)).min(game_data.enemy_trait_pool.len());
 
         let mut bag = game_data.enemy_trait_pool.clone();
         let mut out = Vec::new();
@@ -259,11 +285,22 @@ impl ActiveRun {
         out
     }
 
+    pub(crate) fn sample_trait_choices(
+        &self,
+        rng: &mut SimpleRng,
+        owned_traits: &[TraitId],
+        n: usize,
+    ) -> Vec<TraitId> {
+        sample_trait_choices(rng, owned_traits, n)
+    }
+
     pub(crate) fn current_node_type(&self) -> Option<NodeType> {
         if self.node_index == 0 {
             return None;
         }
-        self.planned_nodes.get((self.node_index - 1) as usize).copied()
+        self.planned_nodes
+            .get((self.node_index - 1) as usize)
+            .copied()
     }
 
     pub(crate) fn ensure_battle_started(&mut self, events: &mut Vec<String>) {
@@ -300,16 +337,50 @@ impl ActiveRun {
         );
 
         self.battle_index += 1;
-        let (enemy_hp, enemy_atk, enemy_matk, enemy_def, enemy_mdef, enemy_crit_rate, enemy_crit_mult, enemy_speed, enemy_name) = match node_type {
+        let (
+            enemy_hp,
+            enemy_atk,
+            enemy_matk,
+            enemy_def,
+            enemy_mdef,
+            enemy_crit_rate,
+            enemy_crit_mult,
+            enemy_speed,
+            enemy_name,
+        ) = match node_type {
             NodeType::Boss => self
                 .game_data
                 .and_then(|d| d.enemies.get("overstack_core"))
-                .map(|e| (e.max_hp, e.atk, e.matk, e.def, e.mdef, e.crit_rate, e.crit_mult, e.speed, e.name))
+                .map(|e| {
+                    (
+                        e.max_hp,
+                        e.atk,
+                        e.matk,
+                        e.def,
+                        e.mdef,
+                        e.crit_rate,
+                        e.crit_mult,
+                        e.speed,
+                        e.name,
+                    )
+                })
                 .unwrap_or((220.0, 14, 14, 8, 8, 15.0, 1.5, 32.0, "Overstack Core")),
             _ => self
                 .game_data
                 .and_then(|d| d.enemies.get("rogue_drone"))
-                .map(|e| (e.max_hp, e.atk, e.matk, e.def, e.mdef, e.crit_rate, e.crit_mult, e.speed, e.name))
+                .map(|e| {
+                    (
+                        e.max_hp,
+                        e.atk,
+                        e.matk,
+                        e.def,
+                        e.mdef,
+                        e.crit_rate,
+                        e.crit_mult,
+                        e.speed,
+                        e.name,
+                    )
+                })
                 .unwrap_or((84.0, 11, 11, 5, 5, 10.0, 1.5, 28.0, "Rogue Drone")),
         };
 
@@ -504,6 +575,7 @@ pub fn set_active_trait(handle: u32, trait_id: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{ActionKind, ActiveRun, TRAIT_CHAIN_DEPTH_MAX};
+    use crate::rng::SimpleRng;
 
     #[test]
     fn ember_lash_applies_burn_sometimes_with_fixed_seed() {
@@ -540,7 +612,10 @@ mod tests {
             }
         }
 
-        assert!(burn_applied > 0, "expected Burn to be applied at least once");
+        assert!(
+            burn_applied > 0,
+            "expected Burn to be applied at least once"
+        );
     }
 
     #[test]
@@ -571,7 +646,10 @@ mod tests {
             }
         }
 
-        assert!(triggered_count > 0, "expected at least one trait trigger event");
+        assert!(
+            triggered_count > 0,
+            "expected at least one trait trigger event"
+        );
     }
 
     #[test]
@@ -623,5 +701,29 @@ mod tests {
             has_enemy_trigger,
             "expected enemy trait trigger event from battle start"
         );
+    }
+
+    #[test]
+    fn apply_traits_to_run_updates_player_traits() {
+        let mut run = ActiveRun::new(7, 1);
+        assert!(run.apply_traits_to_run(&["cinder_scholar", "overcharge"]));
+        assert_eq!(run.player_traits, vec!["cinder_scholar", "overcharge"]);
+    }
+
+    #[test]
+    fn calc_traits_cost_sums_selected_traits() {
+        let run = ActiveRun::new(7, 1);
+        let total = run
+            .calc_traits_cost(&["cinder_scholar", "overcharge"])
+            .expect("traits should exist");
+        assert!(total > 0);
+    }
+
+    #[test]
+    fn sample_trait_choices_excludes_owned_traits() {
+        let run = ActiveRun::new(7, 1);
+        let mut rng = SimpleRng::new(77);
+        let sampled = run.sample_trait_choices(&mut rng, &["cinder_scholar"], 3);
+        assert!(!sampled.contains(&"cinder_scholar"));
     }
 }

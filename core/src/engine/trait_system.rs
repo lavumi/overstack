@@ -56,12 +56,12 @@ impl ActiveRun {
                 multiplier,
                 flat,
             } => {
-                let src_idx = context.src_idx.or_else(|| self.owner_unit_idx(context.owner));
-                let dst_idx = context
-                    .dst_idx
-                    .or_else(|| {
-                        self.resolve_effect_target(crate::skill::EffectTarget::Opponent, context)
-                    });
+                let src_idx = context
+                    .src_idx
+                    .or_else(|| self.owner_unit_idx(context.owner));
+                let dst_idx = context.dst_idx.or_else(|| {
+                    self.resolve_effect_target(crate::skill::EffectTarget::Opponent, context)
+                });
                 if let (Some(src_idx), Some(dst_idx)) = (src_idx, dst_idx) {
                     self.apply_scaled_damage(
                         src_idx,
@@ -86,12 +86,12 @@ impl ActiveRun {
                 stacks,
                 power,
             } => {
-                let src_idx = context.src_idx.or_else(|| self.owner_unit_idx(context.owner));
-                let dst_idx = context
-                    .dst_idx
-                    .or_else(|| {
-                        self.resolve_effect_target(crate::skill::EffectTarget::Opponent, context)
-                    });
+                let src_idx = context
+                    .src_idx
+                    .or_else(|| self.owner_unit_idx(context.owner));
+                let dst_idx = context.dst_idx.or_else(|| {
+                    self.resolve_effect_target(crate::skill::EffectTarget::Opponent, context)
+                });
                 if let (Some(src_idx), Some(dst_idx)) = (src_idx, dst_idx) {
                     self.apply_status(
                         src_idx,
@@ -172,13 +172,21 @@ impl ActiveRun {
                 if let Some(owner_idx) = self.owner_unit_idx(context.owner) {
                     self.add_proc_bonus(owner_idx, amount);
                 }
-                self.push_trait_effect_event(trait_name, format!("AddProcBonus +{amount:.2}"), events);
+                self.push_trait_effect_event(
+                    trait_name,
+                    format!("AddProcBonus +{amount:.2}"),
+                    events,
+                );
             }
             EffectSpec::AddResBonus { amount } => {
                 if let Some(owner_idx) = self.owner_unit_idx(context.owner) {
                     self.add_res_bonus(owner_idx, amount);
                 }
-                self.push_trait_effect_event(trait_name, format!("AddResBonus +{amount:.2}"), events);
+                self.push_trait_effect_event(
+                    trait_name,
+                    format!("AddResBonus +{amount:.2}"),
+                    events,
+                );
             }
             EffectSpec::ModifyStatusPower { status_type, mul } => {
                 if let Some(owner_idx) = self.owner_unit_idx(context.owner) {
@@ -210,7 +218,11 @@ impl ActiveRun {
                     );
                     self.push_trait_effect_event(
                         trait_name,
-                        format!("AddStatusStacks {} +{}", status_type.as_str(), stacks.max(1)),
+                        format!(
+                            "AddStatusStacks {} +{}",
+                            status_type.as_str(),
+                            stacks.max(1)
+                        ),
                         events,
                     );
                 }
@@ -273,7 +285,13 @@ impl ActiveRun {
                     );
 
                     for effect in rule.effects {
-                        self.process_trait_effect(spec.name, *effect, owner_context, depth + 1, events);
+                        self.process_trait_effect(
+                            spec.name,
+                            *effect,
+                            owner_context,
+                            depth + 1,
+                            events,
+                        );
                     }
                 }
             }

@@ -13,7 +13,11 @@ impl ActiveRun {
             .any(|u| u.team == Team::Enemy && u.is_alive() && u.action_gauge >= 100.0);
         if enemy_ready {
             "Basic Attack (ready)".to_string()
-        } else if state.units.iter().any(|u| u.team == Team::Enemy && u.is_alive()) {
+        } else if state
+            .units
+            .iter()
+            .any(|u| u.team == Team::Enemy && u.is_alive())
+        {
             "Basic Attack".to_string()
         } else {
             "-".to_string()

@@ -3,7 +3,9 @@ use crate::event::Event;
 use crate::log::push_event;
 use crate::model::Team;
 use crate::skill::{DamageKind, StatusType};
-use crate::step_api::{hp2, ActiveRun, TraitOwner, TriggerContext, STATUS_TICK_RATE, STATUS_TICK_THRESHOLD};
+use crate::step_api::{
+    hp2, ActiveRun, TraitOwner, TriggerContext, STATUS_TICK_RATE, STATUS_TICK_THRESHOLD,
+};
 use crate::trait_spec::TriggerType;
 
 impl ActiveRun {
@@ -23,8 +25,14 @@ impl ActiveRun {
         let dst_label = self.actor_label_for_idx(dst_idx);
 
         let mut chance = base_chance;
-        chance += self.runtime_ref(src_idx).map(|r| r.proc_bonus).unwrap_or(0.0);
-        chance -= self.runtime_ref(dst_idx).map(|r| r.res_bonus).unwrap_or(0.0);
+        chance += self
+            .runtime_ref(src_idx)
+            .map(|r| r.proc_bonus)
+            .unwrap_or(0.0);
+        chance -= self
+            .runtime_ref(dst_idx)
+            .map(|r| r.res_bonus)
+            .unwrap_or(0.0);
 
         if !self.roll_success(chance) {
             return;
@@ -217,8 +225,14 @@ impl ActiveRun {
         events: &mut Vec<String>,
     ) -> Option<&'static str> {
         let state = self.state_ref()?;
-        let enemy_alive = state.units.iter().any(|u| u.team == Team::Enemy && u.is_alive());
-        let player_alive = state.units.iter().any(|u| u.team == Team::Player && u.is_alive());
+        let enemy_alive = state
+            .units
+            .iter()
+            .any(|u| u.team == Team::Enemy && u.is_alive());
+        let player_alive = state
+            .units
+            .iter()
+            .any(|u| u.team == Team::Player && u.is_alive());
 
         if !enemy_alive {
             let player_hp_after = state
@@ -253,7 +267,11 @@ impl ActiveRun {
         None
     }
 
-    pub(crate) fn tick_statuses(&mut self, dt: f32, events: &mut Vec<String>) -> Option<&'static str> {
+    pub(crate) fn tick_statuses(
+        &mut self,
+        dt: f32,
+        events: &mut Vec<String>,
+    ) -> Option<&'static str> {
         if dt <= 0.0 {
             return None;
         }
@@ -295,7 +313,10 @@ impl ActiveRun {
             }
 
             let dst = self.actor_label_for_idx(unit_idx);
-            let dst_hp_after = self.state_ref().map(|s| s.units[unit_idx].hp).unwrap_or(0.0);
+            let dst_hp_after = self
+                .state_ref()
+                .map(|s| s.units[unit_idx].hp)
+                .unwrap_or(0.0);
 
             push_event(
                 events,

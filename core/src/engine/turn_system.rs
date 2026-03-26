@@ -1,14 +1,18 @@
 use crate::event::Event;
 use crate::log::{push_event, set_log_tick};
 use crate::model::Team;
-use crate::skill::{player_skill_for_slot, skill_by_id, DamageKind, EffectSpec, SkillSpec, StatType, StatusType};
+use crate::skill::{
+    player_skill_for_slot, skill_by_id, DamageKind, EffectSpec, SkillSpec, StatType, StatusType,
+};
 use crate::step_api::{ActionKind, ActiveRun, StepResult, TraitOwner, TriggerContext};
 use crate::trait_spec::TriggerType;
 
 impl ActiveRun {
     fn choose_skill_for_action(&self, action: ActionKind) -> &'static SkillSpec {
         match action {
-            ActionKind::BasicAttack => skill_by_id("basic_attack").unwrap_or_else(|| player_skill_for_slot(0)),
+            ActionKind::BasicAttack => {
+                skill_by_id("basic_attack").unwrap_or_else(|| player_skill_for_slot(0))
+            }
             ActionKind::SkillSlot(slot) => player_skill_for_slot(slot),
         }
     }
@@ -297,7 +301,11 @@ impl ActiveRun {
         while remaining > 0.0 || (self.waiting_for_input && queued_action.is_some()) {
             let current_tick = self.advance_sim_tick();
             set_log_tick(current_tick);
-            let step_dt = if remaining > 0.0 { remaining.min(0.1) } else { 0.0 };
+            let step_dt = if remaining > 0.0 {
+                remaining.min(0.1)
+            } else {
+                0.0
+            };
             remaining = (remaining - step_dt).max(0.0);
             self.elapsed_time += step_dt;
 

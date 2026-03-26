@@ -73,7 +73,12 @@ impl ActiveRun {
             .max(0.1)
     }
 
-    pub(crate) fn update_status_power_mul(&mut self, unit_idx: usize, status_type: StatusType, mul: f32) {
+    pub(crate) fn update_status_power_mul(
+        &mut self,
+        unit_idx: usize,
+        status_type: StatusType,
+        mul: f32,
+    ) {
         if let Some(runtime) = self.runtime_mut(unit_idx) {
             let entry = runtime.status_power_mult.entry(status_type).or_insert(1.0);
             *entry = entry.max(mul.max(0.1));
@@ -105,7 +110,10 @@ impl ActiveRun {
 
     pub(crate) fn has_status(&self, unit_idx: usize, status_type: StatusType) -> bool {
         self.statuses_ref(unit_idx)
-            .map(|row| row.iter().any(|s| s.status_type == status_type && s.duration > 0.0))
+            .map(|row| {
+                row.iter()
+                    .any(|s| s.status_type == status_type && s.duration > 0.0)
+            })
             .unwrap_or(false)
     }
 
@@ -147,7 +155,11 @@ impl ActiveRun {
             .unwrap_or(1.0)
     }
 
-    pub(crate) fn evaluate_condition(&mut self, condition: Condition, context: TriggerContext) -> bool {
+    pub(crate) fn evaluate_condition(
+        &mut self,
+        condition: Condition,
+        context: TriggerContext,
+    ) -> bool {
         match condition {
             Condition::Always => true,
             Condition::SrcIsPlayer => context
@@ -218,7 +230,11 @@ impl ActiveRun {
                     .and_then(|s| s.units.iter().position(|u| u.team == Team::Player)),
                 TraitOwner::Enemy => self
                     .state_ref()
-                    .and_then(|s| s.units.iter().position(|u| u.team == Team::Enemy && u.is_alive()))
+                    .and_then(|s| {
+                        s.units
+                            .iter()
+                            .position(|u| u.team == Team::Enemy && u.is_alive())
+                    })
                     .or_else(|| {
                         self.state_ref()
                             .and_then(|s| s.units.iter().position(|u| u.team == Team::Enemy))
@@ -227,7 +243,11 @@ impl ActiveRun {
             EffectTarget::Opponent => match context.owner {
                 TraitOwner::Player => self
                     .state_ref()
-                    .and_then(|s| s.units.iter().position(|u| u.team == Team::Enemy && u.is_alive()))
+                    .and_then(|s| {
+                        s.units
+                            .iter()
+                            .position(|u| u.team == Team::Enemy && u.is_alive())
+                    })
                     .or_else(|| {
                         self.state_ref()
                             .and_then(|s| s.units.iter().position(|u| u.team == Team::Enemy))
@@ -243,7 +263,11 @@ impl ActiveRun {
                 .and_then(|s| s.units.iter().position(|u| u.team == Team::Player)),
             EffectTarget::Enemy => self
                 .state_ref()
-                .and_then(|s| s.units.iter().position(|u| u.team == Team::Enemy && u.is_alive()))
+                .and_then(|s| {
+                    s.units
+                        .iter()
+                        .position(|u| u.team == Team::Enemy && u.is_alive())
+                })
                 .or_else(|| {
                     self.state_ref()
                         .and_then(|s| s.units.iter().position(|u| u.team == Team::Enemy))

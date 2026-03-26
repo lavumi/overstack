@@ -178,6 +178,7 @@ pub struct TraitSpec {
     pub id: TraitId,
     pub name: &'static str,
     pub description: &'static str,
+    pub cost: u32,
     pub pool: &'static [&'static str],
     pub triggers: &'static [TriggerRule],
 }
