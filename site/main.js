@@ -1,4 +1,4 @@
-// wasm-pack output is loaded via relative path for GitHub Pages root compatibility.
+// wasm-bindgen output is loaded via relative path for GitHub Pages root compatibility.
 import init, {
   create_run_with_stats,
   destroy_run,
@@ -17,8 +17,8 @@ const speedSelect = document.getElementById("speedSelect");
 const startBtn = document.getElementById("startBtn");
 const resetBtn = document.getElementById("resetBtn");
 const bootStatus = document.getElementById("bootStatus");
-const logEl = document.getElementById("log");
 const arenaStatus = document.getElementById("arenaStatus");
+const arenaHint = document.getElementById("arenaHint");
 
 const statusNode = document.getElementById("statusNode");
 const statusBattle = document.getElementById("statusBattle");
@@ -46,6 +46,14 @@ const enemyDef = document.getElementById("enemyDef");
 const enemyMdef = document.getElementById("enemyMdef");
 const enemyIntent = document.getElementById("enemyIntent");
 const enemyStatuses = document.getElementById("enemyStatuses");
+const stagePlayer = document.getElementById("stagePlayer");
+const stageEnemy = document.getElementById("stageEnemy");
+const stagePlayerName = document.getElementById("stagePlayerName");
+const stageEnemyName = document.getElementById("stageEnemyName");
+const stagePlayerVitals = document.getElementById("stagePlayerVitals");
+const stageEnemyVitals = document.getElementById("stageEnemyVitals");
+const stagePlayerState = document.getElementById("stagePlayerState");
+const stageEnemyState = document.getElementById("stageEnemyState");
 
 const inputPrompt = document.getElementById("inputPrompt");
 const actionBasicBtn = document.getElementById("actionBasic");
@@ -80,7 +88,6 @@ const statInputs = {
 const STEP_DT_BASE = 0.15;
 const LOOP_MS = 120;
 const MAX_NODES = 6;
-const MAX_LOG_LINES = 2000;
 const CRIT_C = 100;
 const STAT_BUDGET = 100;
 
@@ -108,7 +115,6 @@ const STAT_RANGES = {
 
 let currentHandle = null;
 let loopTimer = null;
-let logLines = [];
 let uiMode = "idle"; // idle | builder | trait_select | running | need_input | ended
 let selectableTraitIds = [];
 let lastEnemyName = "Enemy";
@@ -139,7 +145,7 @@ function setInputPrompt(text) {
 }
 
 function setArenaStatus(text) {
-  arenaStatus.textContent = text;
+  arenaStatus.firstElementChild.textContent = text;
 }
 
 function setCombatLabels(skillNames) {
@@ -166,32 +172,103 @@ function setBar(fillEl, current, max) {
   fillEl.style.width = `${pct.toFixed(1)}%`;
 }
 
-function fmtStatuses(statuses) {
-  if (!statuses || statuses.length === 0) {
-    return ["None"];
-  }
-  return statuses.map((s) => `${s.status_type} x${s.stacks} (${Number(s.duration).toFixed(1)}s)`);
+function statusKey(statusType) {
+  return String(statusType || "")
+    .trim()
+    .toLowerCase();
 }
 
-function renderStatusList(listEl, statuses) {
-  const lines = fmtStatuses(statuses);
-  listEl.innerHTML = "";
+function renderPillList(container, items, renderItem, emptyLabel, extraClass = "") {
+  container.innerHTML = "";
   const frag = document.createDocumentFragment();
-  for (const line of lines) {
-    const li = document.createElement("li");
-    li.textContent = line;
-    frag.appendChild(li);
+
+  if (!items || items.length === 0) {
+    const empty = document.createElement("span");
+    empty.className = `${extraClass} empty-pill`.trim();
+    empty.textContent = emptyLabel;
+    frag.appendChild(empty);
+    container.appendChild(frag);
+    return;
   }
-  listEl.appendChild(frag);
+
+  for (const item of items) {
+    frag.appendChild(renderItem(item));
+  }
+
+  container.appendChild(frag);
+}
+
+function renderStatusList(container, statuses) {
+  renderPillList(
+    container,
+    statuses,
+    (status) => {
+      const chip = document.createElement("span");
+      chip.className = "status-pill";
+      chip.dataset.status = statusKey(status.status_type);
+      chip.textContent = `${status.status_type} x${status.stacks} · ${Number(status.duration).toFixed(1)}s`;
+      return chip;
+    },
+    "No active statuses",
+    "status-pill",
+  );
+}
+
+function renderTraitList(container, traits) {
+  renderPillList(
+    container,
+    traits,
+    (traitName) => {
+      const chip = document.createElement("span");
+      chip.className = "trait-pill";
+      chip.textContent = traitName;
+      return chip;
+    },
+    "No active traits",
+    "trait-pill",
+  );
+}
+
+function unitStageState(unit) {
+  const hp = Number(unit.hp);
+  const maxHp = Number(unit.max_hp);
+  const gauge = Number(unit.action_gauge);
+  if (hp <= 0) return "down";
+  if (gauge >= 100) return "ready";
+  if (maxHp > 0 && hp / maxHp <= 0.35) return "critical";
+  return "idle";
+}
+
+function unitStateSummary(unit, traitCount) {
+  const statuses = unit.statuses || [];
+  if (Number(unit.hp) <= 0) {
+    return "Unit collapsed";
+  }
+  if (Number(unit.action_gauge) >= 100) {
+    return "Action gauge primed";
+  }
+  if (statuses.length > 0) {
+    return `${statuses.length} status effect${statuses.length > 1 ? "s" : ""} active`;
+  }
+  if (traitCount > 0) {
+    return `${traitCount} trait${traitCount > 1 ? "s" : ""} influencing combat`;
+  }
+  return "Stable combat posture";
 }
 
 function resetStatus() {
   statusNode.textContent = "-";
   statusBattle.textContent = "-";
-  playerTraits.textContent = "-";
-  enemyTraits.textContent = "-";
   playerName.textContent = "Player";
   enemyName.textContent = "Enemy";
+  stagePlayerName.textContent = "Player";
+  stageEnemyName.textContent = "Enemy";
+  stagePlayerVitals.textContent = "HP - / Gauge -";
+  stageEnemyVitals.textContent = "HP - / Gauge -";
+  stagePlayerState.textContent = "Awaiting deployment";
+  stageEnemyState.textContent = "No encounter loaded";
+  stagePlayer.dataset.state = "idle";
+  stageEnemy.dataset.state = "idle";
   playerHpText.textContent = "-";
   enemyHpText.textContent = "-";
   playerGaugeText.textContent = "-";
@@ -206,11 +283,14 @@ function resetStatus() {
   enemyIntent.textContent = "-";
   renderStatusList(playerStatuses, []);
   renderStatusList(enemyStatuses, []);
+  renderTraitList(playerTraits, []);
+  renderTraitList(enemyTraits, []);
   setBar(playerHpFill, 0, 1);
   setBar(enemyHpFill, 0, 1);
   setBar(playerGaugeFill, 0, 100);
   setBar(enemyGaugeFill, 0, 100);
   setArenaStatus("Ready");
+  arenaHint.textContent = "Prepare your opening line.";
   lastEnemyName = "Enemy";
 }
 
@@ -222,8 +302,6 @@ function closeBuilder() {
 }
 
 function resetAll() {
-  logLines = [];
-  logEl.textContent = "";
   resetStatus();
   setCombatLabels([]);
   setActionButtonsEnabled(false);
@@ -278,24 +356,33 @@ function updateArenaStatusByEvent(event) {
   if (event.kind === "BattleStart") {
     lastEnemyName = event.enemy_name || "Enemy";
     enemyName.textContent = lastEnemyName;
+    stageEnemyName.textContent = lastEnemyName;
     setArenaStatus(`Encounter: ${lastEnemyName}`);
+    arenaHint.textContent = "New hostile pattern detected.";
     return;
   }
   if (event.kind === "TurnReady") {
     setArenaStatus(event.actor === "player" ? "Player Turn" : "Enemy Turn");
+    arenaHint.textContent =
+      event.actor === "player" ? "Action window open." : "Brace for incoming action.";
     return;
   }
   if (event.kind === "ActionUsed") {
     const actor = event.actor === "player" ? "Player" : "Enemy";
     setArenaStatus(`${actor} uses ${event.action_name}`);
+    arenaHint.textContent = `${actor} committed ${event.action_name}.`;
     return;
   }
   if (event.kind === "BattleEnd") {
     setArenaStatus(event.result === "win" ? "Battle Won" : "Battle Lost");
+    arenaHint.textContent =
+      event.result === "win" ? "Arena secured. Prepare the next node." : "Recovery required.";
     return;
   }
   if (event.kind === "RunEnd") {
     setArenaStatus(event.result === "win" ? "Run Complete" : "Run Failed");
+    arenaHint.textContent =
+      event.result === "win" ? "Simulation complete." : "Run terminated.";
   }
 }
 
@@ -304,23 +391,14 @@ function appendEventLines(events) {
     return;
   }
 
-  const fragLines = [];
   for (const line of events) {
     const event = parseEvent(line);
     updateArenaStatusByEvent(event);
     const tickLabel = Number.isFinite(Number(event.tick))
       ? `t=${String(Math.trunc(Number(event.tick))).padStart(4, "0")}`
       : "t=----";
-    fragLines.push(`[${tickLabel}] ${formatEventLine(event)}`);
+    console.log(`[${tickLabel}] ${formatEventLine(event)}`);
   }
-
-  logLines.push(...fragLines);
-  if (logLines.length > MAX_LOG_LINES) {
-    logLines = logLines.slice(logLines.length - MAX_LOG_LINES);
-  }
-
-  logEl.textContent = `${logLines.join("\n")}${logLines.length > 0 ? "\n" : ""}`;
-  logEl.scrollTop = logEl.scrollHeight;
 }
 
 function critChancePercent(critRate) {
@@ -337,6 +415,8 @@ function updateHudFromSnapshot(snapshot) {
 
   playerName.textContent = "Player";
   enemyName.textContent = lastEnemyName || "Enemy";
+  stagePlayerName.textContent = "Player";
+  stageEnemyName.textContent = lastEnemyName || "Enemy";
 
   const php = Number(snapshot.player.hp);
   const pmax = Number(snapshot.player.max_hp);
@@ -349,6 +429,12 @@ function updateHudFromSnapshot(snapshot) {
   enemyHpText.textContent = `${ehp.toFixed(0)} / ${emax.toFixed(0)}`;
   playerGaugeText.textContent = pg.toFixed(1);
   enemyGaugeText.textContent = eg.toFixed(1);
+  stagePlayerVitals.textContent = `${php.toFixed(0)} HP · Gauge ${pg.toFixed(0)}`;
+  stageEnemyVitals.textContent = `${ehp.toFixed(0)} HP · Gauge ${eg.toFixed(0)}`;
+  stagePlayerState.textContent = unitStateSummary(snapshot.player, (snapshot.player_traits || []).length);
+  stageEnemyState.textContent = unitStateSummary(snapshot.enemy, (snapshot.enemy_traits || []).length);
+  stagePlayer.dataset.state = unitStageState(snapshot.player);
+  stageEnemy.dataset.state = unitStageState(snapshot.enemy);
 
   setBar(playerHpFill, php, pmax);
   setBar(enemyHpFill, ehp, emax);
@@ -363,9 +449,8 @@ function updateHudFromSnapshot(snapshot) {
   enemyMdef.textContent = String(snapshot.enemy.mdef);
   playerCrit.textContent = `${critChancePercent(snapshot.player.crit_rate).toFixed(1)}%`;
   enemyIntent.textContent = snapshot.enemy_next_intent || "-";
-  playerTraits.textContent = (snapshot.player_traits || []).join(", ") || "-";
-  enemyTraits.textContent = (snapshot.enemy_traits || []).join(", ") || "-";
-
+  renderTraitList(playerTraits, snapshot.player_traits || []);
+  renderTraitList(enemyTraits, snapshot.enemy_traits || []);
   renderStatusList(playerStatuses, snapshot.player.statuses);
   renderStatusList(enemyStatuses, snapshot.enemy.statuses);
 
@@ -373,6 +458,7 @@ function updateHudFromSnapshot(snapshot) {
     uiMode = "ended";
     setActionButtonsEnabled(false);
     setInputPrompt("");
+    arenaHint.textContent = "Simulation ended.";
   }
 }
 
@@ -381,6 +467,7 @@ function processStepResult(result) {
 
   if (result.error) {
     setArenaStatus(`Error: ${result.error}`);
+    arenaHint.textContent = "See console for the last emitted events.";
     uiMode = "ended";
     setActionButtonsEnabled(false);
     setInputPrompt("");
@@ -393,6 +480,7 @@ function processStepResult(result) {
     setActionButtonsEnabled(true);
     setInputPrompt("Choose action");
     setArenaStatus("Input Required: Choose action");
+    arenaHint.textContent = "Select a command from the action dock.";
     stopLoop();
     return;
   }
