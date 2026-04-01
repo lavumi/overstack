@@ -1,4 +1,5 @@
 core/target/
 site/pkg/
+site/docs/
 site_server.pid
 site_server.log

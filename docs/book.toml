@@ -1,7 +1,6 @@
 [book]
 authors = ["Overstack"]
 language = "ko"
-multilingual = false
 src = "."
 title = "Overstack Docs"
 

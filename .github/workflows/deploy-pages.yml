@@ -46,7 +46,7 @@ jobs:
         run: wasm-bindgen --target web --out-dir ../site/pkg target/wasm32-unknown-unknown/release/core.wasm
 
       - name: Build mdBook docs
-        run: mdbook build docs -d ../site/docs
+        run: mdbook build docs -d site/docs
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
