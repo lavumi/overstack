@@ -1,6 +1,15 @@
 # Summary
 
 - [Overstack Docs](index.md)
-- [Content Primitives](content_primitives.md)
-- [Content Workflow](content_workflow.md)
-- [Trait Timing Model](trait_timing_model.md)
+- [Player Docs](player/index.md)
+  - [Game Overview](player/game-overview.md)
+  - [Building Rules](player/building-rules.md)
+  - [Combat Rules](player/combat-rules.md)
+  - [Status Reference](player/status-reference.md)
+  - [Trait Reference](player/trait-reference.md)
+- [Dev Docs](dev/index.md)
+  - [Content Data](dev/content-data.md)
+  - [Content Authoring](dev/content-authoring.md)
+  - [Frontend Architecture](dev/frontend-architecture.md)
+  - [Core Architecture](dev/core-architecture.md)
+  - [Roadmap](dev/roadmap.md)
