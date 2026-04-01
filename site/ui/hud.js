@@ -2,6 +2,7 @@ export function createHud(elements, options = {}) {
   const CRIT_C = options.critConstant ?? 100;
   let lastEnemyName = "Enemy";
   let onAction = () => {};
+  let skillSlotEnabled = [false, false, false, false];
 
   function clampPct(v) {
     return Math.max(0, Math.min(100, v));
@@ -123,14 +124,18 @@ export function createHud(elements, options = {}) {
   function setCombatLabels(skillNames) {
     elements.actionBasicBtn.textContent = "Basic Attack";
     for (let i = 0; i < elements.actionSkillButtons.length; i += 1) {
-      elements.actionSkillButtons[i].textContent = skillNames[i] || `Skill ${i + 1}`;
+      const name = skillNames[i] || "";
+      skillSlotEnabled[i] = Boolean(name);
+      elements.actionSkillButtons[i].textContent = name || "Empty";
+      elements.actionSkillButtons[i].dataset.inactive = skillSlotEnabled[i] ? "false" : "true";
     }
   }
 
   function setActionButtonsEnabled(enabled) {
     elements.actionBasicBtn.disabled = !enabled;
-    for (const button of elements.actionSkillButtons) {
-      button.disabled = !enabled;
+    for (let i = 0; i < elements.actionSkillButtons.length; i += 1) {
+      const button = elements.actionSkillButtons[i];
+      button.disabled = !enabled || !skillSlotEnabled[i];
     }
   }
 
@@ -158,6 +163,8 @@ export function createHud(elements, options = {}) {
     elements.enemyMdef.textContent = "-";
     elements.playerCrit.textContent = "-";
     elements.enemyIntent.textContent = "-";
+    skillSlotEnabled = [false, false, false, false];
+    setCombatLabels(["", "", "", ""]);
     renderStatusList(elements.playerStatuses, []);
     renderStatusList(elements.enemyStatuses, []);
     renderTraitList(elements.playerTraits, []);

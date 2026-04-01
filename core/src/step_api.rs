@@ -3,7 +3,9 @@ use wasm_bindgen::prelude::*;
 use crate::engine::runtime::ActionKind;
 use crate::model::PlayerInitStats;
 use crate::rng::SimpleRng;
-use crate::skill::player_skill_names;
+use crate::skill::{
+    selectable_skill_costs, selectable_skill_ids, selectable_skill_names, sample_skill_choices,
+};
 use crate::trait_spec::{
     sample_trait_choices, selectable_trait_costs, selectable_trait_ids, selectable_trait_names,
 };
@@ -203,7 +205,7 @@ pub fn get_snapshot(handle: u32) -> Snapshot {
 
 #[wasm_bindgen]
 pub fn get_player_skills(handle: u32) -> Vec<String> {
-    manager::with_run(handle, |_| player_skill_names()).unwrap_or_default()
+    manager::with_run(handle, |run| run.player_skill_names()).unwrap_or_default()
 }
 
 #[wasm_bindgen]
@@ -227,9 +229,33 @@ pub fn get_selectable_trait_costs() -> Vec<u32> {
 }
 
 #[wasm_bindgen]
+pub fn get_selectable_skill_names() -> Vec<String> {
+    selectable_skill_names()
+}
+
+#[wasm_bindgen]
+pub fn get_selectable_skill_ids() -> Vec<String> {
+    selectable_skill_ids()
+}
+
+#[wasm_bindgen]
+pub fn get_selectable_skill_costs() -> Vec<u32> {
+    selectable_skill_costs()
+}
+
+#[wasm_bindgen]
 pub fn sample_starting_trait_ids(seed: u32, n: u32) -> Vec<String> {
     let mut rng = SimpleRng::new(seed as u64);
     sample_trait_choices(&mut rng, &[], n as usize)
+        .into_iter()
+        .map(|id| id.to_string())
+        .collect()
+}
+
+#[wasm_bindgen]
+pub fn sample_starting_skill_ids(seed: u32, n: u32) -> Vec<String> {
+    let mut rng = SimpleRng::new(seed as u64);
+    sample_skill_choices(&mut rng, &[], n as usize)
         .into_iter()
         .map(|id| id.to_string())
         .collect()
@@ -248,6 +274,16 @@ pub fn set_active_traits(handle: u32, trait_ids_csv: &str) -> bool {
         .filter(|id| !id.is_empty())
         .collect::<Vec<_>>();
     manager::with_run_mut(handle, |run| run.apply_traits_to_run(&selected)).unwrap_or(false)
+}
+
+#[wasm_bindgen]
+pub fn set_player_skills(handle: u32, skill_ids_csv: &str) -> bool {
+    let selected = skill_ids_csv
+        .split(',')
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .collect::<Vec<_>>();
+    manager::with_run_mut(handle, |run| run.apply_player_skills(&selected)).unwrap_or(false)
 }
 
 #[cfg(test)]

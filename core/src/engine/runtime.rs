@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::data::{ErrorReport, GameData};
 use crate::model::{BattleState, NodeType, RunState};
-use crate::skill::StatusType;
+use crate::skill::{SkillId, StatusType};
 use crate::trait_spec::{TraitId, TriggerType};
 
 pub(crate) const TRAIT_CHAIN_DEPTH_MAX: u8 = 4;
@@ -75,6 +75,7 @@ pub(crate) struct ActiveRun {
     pub(crate) ended: bool,
     pub(crate) result: &'static str,
     pub(crate) elapsed_time: f32,
+    pub(crate) player_skills: [SkillId; 4],
     pub(crate) player_traits: Vec<TraitId>,
     pub(crate) enemy_traits: Vec<TraitId>,
     pub(crate) game_data: Option<&'static GameData>,

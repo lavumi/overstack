@@ -16,6 +16,7 @@ pub struct GameData {
     pub traits: TraitRegistry,
     pub enemies: EnemyRegistry,
     pub player_loadout: [SkillId; 4],
+    pub selectable_skills: Vec<SkillId>,
     pub selectable_traits: Vec<TraitId>,
     pub enemy_trait_pool: Vec<TraitId>,
 }

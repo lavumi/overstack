@@ -105,9 +105,12 @@ const builder = createBuilderUI(
     builderBudgetText: document.getElementById("builderBudgetText"),
     builderStatsCostText: document.getElementById("builderStatsCostText"),
     builderTraitCostText: document.getElementById("builderTraitCostText"),
+    builderSkillCostText: document.getElementById("builderSkillCostText"),
     builderRemainingText: document.getElementById("builderRemainingText"),
     builderTraitHint: document.getElementById("builderTraitHint"),
     builderTraitChoices: document.getElementById("builderTraitChoices"),
+    builderSkillHint: document.getElementById("builderSkillHint"),
+    builderSkillChoices: document.getElementById("builderSkillChoices"),
     builderError: document.getElementById("builderError"),
     builderRandomBtn: document.getElementById("builderRandomBtn"),
     builderRerollBtn: document.getElementById("builderRerollBtn"),
@@ -131,6 +134,7 @@ const builder = createBuilderUI(
     statRanges: STAT_RANGES,
     randomSeed32,
     sampleTraitIds: wasm.sampleStartingTraitIds,
+    sampleSkillIds: wasm.sampleStartingSkillIds,
   },
 );
 
@@ -305,11 +309,14 @@ function startLoop() {
 
 function openBuilder() {
   screens.showBuilder();
-  builder.open(wasm.getSelectableTraits());
+  builder.open({
+    traits: wasm.getSelectableTraits(),
+    skills: wasm.getSelectableSkills(),
+  });
   uiMode = "builder";
 }
 
-function startRunWithBuild({ stats, traitIds }) {
+function startRunWithBuild({ stats, traitIds, skillIds }) {
   stopLoop();
 
   if (currentHandle !== null) {
@@ -328,6 +335,16 @@ function startRunWithBuild({ stats, traitIds }) {
     const ok = wasm.setActiveTraits(currentHandle, traitIds);
     if (!ok) {
       hud.setArenaStatus("Trait apply failed");
+      screens.showBuilder();
+      uiMode = "builder";
+      return;
+    }
+  }
+
+  {
+    const ok = wasm.setPlayerSkills(currentHandle, skillIds);
+    if (!ok) {
+      hud.setArenaStatus("Skill apply failed");
       screens.showBuilder();
       uiMode = "builder";
       return;

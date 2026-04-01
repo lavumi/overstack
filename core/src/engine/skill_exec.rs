@@ -2,7 +2,7 @@ use crate::engine::runtime::{ActionKind, ActiveRun, TraitOwner, TriggerContext};
 use crate::event::Event;
 use crate::log::push_event;
 use crate::model::Team;
-use crate::skill::{player_skill_for_slot, skill_by_id, DamageKind, EffectSpec, SkillSpec};
+use crate::skill::{skill_by_id, DamageKind, EffectSpec, SkillSpec};
 use crate::trait_spec::TriggerType;
 
 struct ActionSnapshot {
@@ -24,12 +24,12 @@ struct ResolvedActionLayers {
 }
 
 impl ActiveRun {
-    fn choose_skill_for_action(&self, action: ActionKind) -> &'static SkillSpec {
+    fn choose_skill_for_action(&self, action: ActionKind) -> Option<&'static SkillSpec> {
         match action {
             ActionKind::BasicAttack => {
-                skill_by_id("basic_attack").unwrap_or_else(|| player_skill_for_slot(0))
+                skill_by_id("basic_attack")
             }
-            ActionKind::SkillSlot(slot) => player_skill_for_slot(slot),
+            ActionKind::SkillSlot(slot) => self.player_skill_for_slot(slot),
         }
     }
 
@@ -186,15 +186,19 @@ impl ActiveRun {
             return None;
         };
 
-        if let Some(state) = self.state_mut() {
-            state.units[actor_idx].action_gauge -= 100.0;
-        }
-
         let skill = if actor_team == Team::Player {
             self.choose_skill_for_action(action)
         } else {
-            skill_by_id("basic_attack").unwrap_or_else(|| player_skill_for_slot(0))
+            skill_by_id("basic_attack")
         };
+
+        let Some(skill) = skill else {
+            return None;
+        };
+
+        if let Some(state) = self.state_mut() {
+            state.units[actor_idx].action_gauge -= 100.0;
+        }
 
         self.execute_skill(actor_idx, target_idx, skill, events);
         self.check_and_emit_battle_end(events)

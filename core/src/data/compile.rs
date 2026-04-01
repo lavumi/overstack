@@ -15,6 +15,7 @@ pub fn compile_defs(defs: &EmbeddedDefs) -> Result<GameData, ErrorReport> {
     let traits = compile_traits(defs, &mut report);
     let enemies = compile_enemies(defs, &mut report);
     let player_loadout = compile_player_loadout(defs, &skills, &mut report);
+    let selectable_skills = compile_selectable_skills(defs, &skills, &mut report);
     let selectable_traits = compile_selectable_traits(defs, &traits, &mut report);
     let enemy_trait_pool = compile_enemy_trait_pool(defs, &traits, &mut report);
 
@@ -24,6 +25,7 @@ pub fn compile_defs(defs: &EmbeddedDefs) -> Result<GameData, ErrorReport> {
             traits,
             enemies,
             player_loadout,
+            selectable_skills,
             selectable_traits,
             enemy_trait_pool,
         })
@@ -50,6 +52,7 @@ fn compile_skills(defs: &EmbeddedDefs, report: &mut ErrorReport) -> SkillRegistr
             id,
             name: leak_str(def.name.clone()),
             description: leak_str(def.description.clone()),
+            cost: def.cost.unwrap_or(0),
             damage_kind: DamageKind::Physical,
             effects: leak_effects(effects),
             tags: leak_strings(def.tags.clone().unwrap_or_default()),
@@ -168,6 +171,27 @@ fn compile_selectable_traits(
             report.push(
                 format!("traits.selectable_traits[{i}]"),
                 format!("unknown trait '{}'", id),
+            );
+            continue;
+        }
+        out.push(leak_str(id.clone()));
+    }
+
+    out
+}
+
+fn compile_selectable_skills(
+    defs: &EmbeddedDefs,
+    skills: &SkillRegistry,
+    report: &mut ErrorReport,
+) -> Vec<SkillId> {
+    let mut out = Vec::new();
+
+    for (i, id) in defs.skills.selectable_skills.iter().enumerate() {
+        if !skills.contains_key(id.as_str()) {
+            report.push(
+                format!("skills.selectable_skills[{i}]"),
+                format!("unknown skill '{}'", id),
             );
             continue;
         }

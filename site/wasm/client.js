@@ -3,13 +3,18 @@ import init, {
   create_run_with_stats,
   destroy_run,
   get_player_skills,
+  get_selectable_skill_costs,
+  get_selectable_skill_ids,
+  get_selectable_skill_names,
   get_selectable_trait_costs,
   get_selectable_trait_ids,
   get_selectable_trait_names,
   get_snapshot,
   reset_run,
   run_run,
+  sample_starting_skill_ids,
   sample_starting_trait_ids,
+  set_player_skills,
   set_active_traits,
   step_with_action,
 } from "../pkg/core.js";
@@ -31,8 +36,20 @@ export function createWasmClient() {
     };
   }
 
+  function getSelectableSkills() {
+    return {
+      ids: get_selectable_skill_ids(),
+      names: get_selectable_skill_names(),
+      costs: get_selectable_skill_costs(),
+    };
+  }
+
   function sampleStartingTraitIds(seed, count) {
     return sample_starting_trait_ids(seed, count);
+  }
+
+  function sampleStartingSkillIds(seed, count) {
+    return sample_starting_skill_ids(seed, count);
   }
 
   function createRunWithStats(seed, maxNodes, stats) {
@@ -62,6 +79,10 @@ export function createWasmClient() {
     return set_active_traits(handle, traitIds.join(","));
   }
 
+  function setPlayerSkills(handle, skillIds) {
+    return set_player_skills(handle, skillIds.join(","));
+  }
+
   function getPlayerSkills(handle) {
     return get_player_skills(handle);
   }
@@ -77,12 +98,15 @@ export function createWasmClient() {
   return {
     boot,
     runSmoke,
+    getSelectableSkills,
     getSelectableTraits,
+    sampleStartingSkillIds,
     sampleStartingTraitIds,
     createRunWithStats,
     destroyRun,
     resetRun,
     setActiveTraits,
+    setPlayerSkills,
     getPlayerSkills,
     getSnapshot,
     step,

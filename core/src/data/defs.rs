@@ -8,6 +8,8 @@ pub struct SkillsFileDef {
     pub skills: Vec<SkillDef>,
     #[serde(default)]
     pub player_loadout: Vec<String>,
+    #[serde(default)]
+    pub selectable_skills: Vec<String>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -29,6 +31,7 @@ pub struct SkillDef {
     pub id: String,
     pub name: String,
     pub description: String,
+    pub cost: Option<u32>,
     #[serde(default)]
     pub effects: Vec<EffectDef>,
     pub tags: Option<Vec<String>>,

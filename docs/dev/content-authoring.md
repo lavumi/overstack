@@ -18,6 +18,8 @@
 
 새 스킬을 추가할 때 먼저 확인할 것:
 
+- 시작 빌더 selectable skill로 열어둘 것인가
+- `cost`를 얼마로 둘 것인가
 - 피해형인가
 - 상태이상 부여형인가
 - 조건부 증폭형인가
@@ -34,6 +36,7 @@
 
 작성 팁:
 
+- `basic_attack`을 제외한 시작 스킬은 `cost >= 1`로 잡습니다.
 - 피해가 필요하면 `DealDamage`
 - 상태를 걸고 싶으면 `ApplyStatus`
 - 특정 상태가 있을 때만 더 세게 때리고 싶으면 `ConditionalDamageAmp`

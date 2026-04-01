@@ -14,7 +14,9 @@
 `core/data/skills.json`은 다음을 포함합니다.
 
 - 플레이어 기본 로드아웃
+- 시작 빌더에서 고를 수 있는 selectable skill 목록
 - 각 스킬의 `id`, `name`, `description`
+- 각 스킬의 `cost`
 - effect 목록
 - tags
 
@@ -29,6 +31,8 @@
 
 구조 메모:
 
+- `basic_attack`은 무료 기본 액션이고, 다른 시작 스킬은 `cost`를 가집니다.
+- 현재 시작 빌드는 고른 starting skills만 run별 loadout으로 override합니다.
 - 현재 스킬은 `effects` 배열 중심으로 정의됩니다.
 - 실제 피해는 `DealDamage` effect가 담당합니다.
 - 상태이상 부여, 제거, 조건부 증폭도 같은 배열 안에서 조합됩니다.
@@ -68,7 +72,7 @@ Trait은 `rarity_weight` 없이 `cost`만 가집니다.
 
 ## 시작 빌드 데이터와 콘텐츠 데이터의 연결
 
-시작 빌드는 trait와 stats를 함께 사용합니다.
+시작 빌드는 trait, skills, stats를 함께 사용합니다.
 
 - trait는 `core/data/traits.json`
 - 스킬은 `core/data/skills.json`

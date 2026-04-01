@@ -112,6 +112,16 @@ pub fn validate_defs(defs: &EmbeddedDefs) -> Result<(), ErrorReport> {
         if skill.name.trim().is_empty() {
             report.push(format!("skills.skills[{i}].name"), "must not be empty");
         }
+        match skill.cost {
+            Some(cost) => {
+                if skill.id != "basic_attack" && cost < 1 {
+                    report.push(format!("skills.skills[{i}].cost"), "must be >= 1 for non-basic skills");
+                }
+            }
+            None => {
+                report.push(format!("skills.skills[{i}].cost"), "required");
+            }
+        }
 
         for (j, effect) in skill.effects.iter().enumerate() {
             validate_effect(
@@ -175,6 +185,15 @@ pub fn validate_defs(defs: &EmbeddedDefs) -> Result<(), ErrorReport> {
         if !skill_ids.contains(id.as_str()) {
             report.push(
                 format!("skills.player_loadout[{i}]"),
+                format!("unknown skill id '{id}'"),
+            );
+        }
+    }
+
+    for (i, id) in defs.skills.selectable_skills.iter().enumerate() {
+        if !skill_ids.contains(id.as_str()) {
+            report.push(
+                format!("skills.selectable_skills[{i}]"),
                 format!("unknown skill id '{id}'"),
             );
         }
@@ -431,6 +450,7 @@ mod tests {
                   "id":"s1",
                   "name":"X",
                   "description":"x",
+                  "cost":1,
                   "effects":[{"type":"ApplyStatus","status":"Bunr","chance":0.3,"duration":1.0,"stacks":1,"power":1.0}]
                 }
               ],
@@ -499,6 +519,7 @@ mod tests {
                   "id":"s1",
                   "name":"X",
                   "description":"x",
+                  "cost":1,
                   "effects":[{"type":"RemoveStatus"}]
                 }
               ],

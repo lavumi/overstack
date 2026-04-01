@@ -19,7 +19,7 @@
           <div class="landing-kicker">Status Combo Tactics</div>
           <h1>Overstack</h1>
           <p>
-            Build one starting trait, spend the rest of your budget on stats,
+            Build one starting trait, choose your opening skills, spend the rest of your budget on stats,
             and enter the simulation only when the loadout is ready.
           </p>
         </div>
@@ -44,7 +44,7 @@
             <div class="meta-row">Stage 1</div>
             <h2>Character Builder</h2>
           </div>
-          <p>Pick one starting trait first, then tune the rest of the build budget into stats.</p>
+          <p>Pick one starting trait, load your opening skills, then tune the rest of the build budget into stats.</p>
         </div>
         <div class="builder-actions">
           <label><input id="builderModeRandom" type="radio" name="builderMode" value="random" checked /> Random</label>
@@ -65,9 +65,15 @@
           <div id="builderTraitHint" class="builder-trait-hint">Random mode will roll one weighted trait.</div>
           <div id="builderTraitChoices" class="builder-trait-choices"></div>
         </div>
+        <div class="builder-traits">
+          <div class="meta-row">Starting Skills</div>
+          <div id="builderSkillHint" class="builder-trait-hint">Choose up to four starting skills. Empty slots stay inactive.</div>
+          <div id="builderSkillChoices" class="builder-trait-choices"></div>
+        </div>
         <div class="builder-meta builder-budget-grid">
           <div>Stats Cost <span id="builderStatsCostText">0.0</span></div>
           <div>Trait Cost <span id="builderTraitCostText">0</span></div>
+          <div>Skill Cost <span id="builderSkillCostText">0</span></div>
           <div>Total Cost <span id="builderBudgetText">0.0 / 100.0</span></div>
           <div>Remaining <span id="builderRemainingText">100.0</span></div>
         </div>

@@ -22,6 +22,8 @@ All game content must be defined in JSON and compiled into runtime specs.
 Root Structure:
 
 {
+  "player_loadout": ["ember_lash", "frost_bite", "arc_jolt", "ruin_strike"],
+  "selectable_skills": ["ember_lash", "frost_bite", "arc_jolt", "ruin_strike", "purge_strike"],
   "skills": [ SkillDef, SkillDef, ... ]
 }
 
@@ -33,6 +35,7 @@ SkillDef
   "id": "sk_ember_lash",
   "name": "Ember Lash",
   "description": "Burns the enemy.",
+  "cost": 4,
   "effects": [ EffectDef, EffectDef ],
   "tags": ["fire", "dot"]
 }
@@ -42,6 +45,7 @@ Fields:
 id                     string   required
 name                   string   required
 description            string   required
+cost                   uint     required, basic_attack may use 0
 effects                array    required
 tags                   string[] optional
 

@@ -138,6 +138,7 @@ pub struct SkillSpec {
     pub id: SkillId,
     pub name: &'static str,
     pub description: &'static str,
+    pub cost: u32,
     pub damage_kind: DamageKind,
     pub effects: &'static [EffectSpec],
     pub tags: &'static [&'static str],

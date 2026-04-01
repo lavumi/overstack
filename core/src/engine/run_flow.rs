@@ -9,6 +9,7 @@ use crate::trait_spec::{
     active_trait_names, calc_traits_cost as calc_selected_traits_cost, sample_trait_choices,
     trait_by_id, TraitId, TriggerType,
 };
+use crate::skill::{calc_skills_cost as calc_selected_skills_cost, skill_by_id, SkillId};
 
 impl ActiveRun {
     pub(crate) fn new(seed: u64, max_nodes: u32) -> Self {
@@ -49,6 +50,7 @@ impl ActiveRun {
             ended: false,
             result: "none",
             elapsed_time: 0.0,
+            player_skills: game_data.map(|data| data.player_loadout).unwrap_or([""; 4]),
             player_traits: Vec::new(),
             enemy_traits: Vec::new(),
             game_data,
@@ -57,11 +59,42 @@ impl ActiveRun {
     }
 
     pub(crate) fn reset(&mut self) {
+        let player_skills = self.player_skills;
+        let player_traits = self.player_traits.clone();
         *self = Self::new(self.seed, self.max_nodes);
+        self.player_skills = player_skills;
+        self.player_traits = player_traits;
     }
 
     pub(crate) fn active_trait_names(&self) -> Vec<String> {
         active_trait_names(&self.player_traits)
+    }
+
+    pub(crate) fn player_skill_names(&self) -> Vec<String> {
+        self.player_skills
+            .iter()
+            .map(|id| {
+                if id.is_empty() {
+                    String::new()
+                } else {
+                    skill_by_id(id)
+                        .map(|skill| skill.name.to_string())
+                        .unwrap_or_default()
+                }
+            })
+            .collect()
+    }
+
+    pub(crate) fn player_skill_for_slot(
+        &self,
+        slot: u32,
+    ) -> Option<&'static crate::skill::SkillSpec> {
+        let idx = (slot as usize).min(self.player_skills.len().saturating_sub(1));
+        let id = self.player_skills[idx];
+        if id.is_empty() {
+            return None;
+        }
+        skill_by_id(id)
     }
 
     pub(crate) fn enemy_trait_names(&self) -> Vec<String> {
@@ -70,6 +103,20 @@ impl ActiveRun {
 
     pub(crate) fn set_single_active_trait(&mut self, trait_id: &str) -> bool {
         self.apply_traits_to_run(&[trait_id])
+    }
+
+    pub(crate) fn apply_player_skills(&mut self, selected_skill_ids: &[&str]) -> bool {
+        let mut next_skills = [""; 4];
+
+        for (idx, skill_id) in selected_skill_ids.iter().take(4).enumerate() {
+            let Some(spec) = skill_by_id(skill_id) else {
+                return false;
+            };
+            next_skills[idx] = spec.id;
+        }
+
+        self.player_skills = next_skills;
+        true
     }
 
     pub(crate) fn apply_traits_to_run(&mut self, selected_trait_ids: &[&str]) -> bool {
@@ -95,6 +142,15 @@ impl ActiveRun {
             resolved.push(spec.id);
         }
         Some(calc_selected_traits_cost(&resolved))
+    }
+
+    pub(crate) fn calc_skills_cost(&self, selected_skill_ids: &[&str]) -> Option<u32> {
+        let mut resolved: Vec<SkillId> = Vec::new();
+        for skill_id in selected_skill_ids {
+            let spec = skill_by_id(skill_id)?;
+            resolved.push(spec.id);
+        }
+        Some(calc_selected_skills_cost(&resolved))
     }
 
     fn roll_enemy_traits(&mut self, node_type: NodeType) -> Vec<TraitId> {

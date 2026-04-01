@@ -6,12 +6,17 @@ export function createBuilderUI(elements, options) {
     statRanges,
     randomSeed32,
     sampleTraitIds,
+    sampleSkillIds,
   } = options;
 
   let selectableTraitIds = [];
   let selectableTraitNames = [];
   let selectableTraitCosts = [];
+  let selectableSkillIds = [];
+  let selectableSkillNames = [];
+  let selectableSkillCosts = [];
   let selectedBuilderTraitIds = [];
+  let selectedBuilderSkillIds = [];
   let builderMode = "random";
   let onConfirm = () => {};
   let onCancel = () => {};
@@ -52,11 +57,14 @@ export function createBuilderUI(elements, options) {
     const matk_cost = stats.matk * 1.0;
     const def_cost = Math.max(0, stats.def) * 0.8;
     const mdef_cost = stats.mdef * 0.8;
-    // Speed is an absolute stat on the same scale enemies use.
     const speed_cost = Math.max(0, stats.speed - 30.0) * 2.0;
     const crit_rate_cost = stats.crit_rate / 10;
     const crit_mult_cost = Math.max(0, stats.crit_mult - 1.5) * 40;
     return hp_cost + atk_cost + matk_cost + def_cost + mdef_cost + speed_cost + crit_rate_cost + crit_mult_cost;
+  }
+
+  function currentBudgetCap() {
+    return builderMode === "random" ? randomBuildBudget : startBuildBudget;
   }
 
   function selectedBuilderTraitName() {
@@ -76,35 +84,50 @@ export function createBuilderUI(elements, options) {
     return idx >= 0 ? Number(selectableTraitCosts[idx] || 0) : 0;
   }
 
+  function selectedBuilderSkillCost() {
+    return selectedBuilderSkillIds.reduce((sum, id) => {
+      const idx = selectableSkillIds.indexOf(id);
+      return sum + (idx >= 0 ? Number(selectableSkillCosts[idx] || 0) : 0);
+    }, 0);
+  }
+
   function calcBuildCost(stats = readStats()) {
     const statsCost = calcTotalCost(stats);
     const traitsCost = selectedBuilderTraitCost();
-    const totalCost = statsCost + traitsCost;
+    const skillsCost = selectedBuilderSkillCost();
+    const totalCost = statsCost + traitsCost + skillsCost;
     const remainingBudget = currentBudgetCap() - totalCost;
     return {
       statsCost,
       traitsCost,
+      skillsCost,
       totalCost,
       remainingBudget,
     };
-  }
-
-  function currentBudgetCap() {
-    return builderMode === "random" ? randomBuildBudget : startBuildBudget;
   }
 
   function refreshBudgetText(stats = readStats()) {
     const summary = calcBuildCost(stats);
     elements.builderStatsCostText.textContent = summary.statsCost.toFixed(1);
     elements.builderTraitCostText.textContent = summary.traitsCost.toFixed(0);
+    elements.builderSkillCostText.textContent = summary.skillsCost.toFixed(0);
     elements.builderBudgetText.textContent = `${summary.totalCost.toFixed(1)} / ${currentBudgetCap().toFixed(1)}`;
     elements.builderRemainingText.textContent = summary.remainingBudget.toFixed(1);
+
     const traitName = selectedBuilderTraitName();
     elements.builderTraitHint.textContent = traitName
       ? `Selected trait: ${traitName}`
       : builderMode === "manual"
-        ? "Select one starting trait that fits the remaining budget."
-        : "Random mode rolls one weighted trait first, then fills stats with the remaining budget.";
+        ? "Select exactly one starting trait that fits the budget."
+        : "Random mode rolls one weighted starting trait first.";
+
+    if (selectedBuilderSkillIds.length > 0) {
+      elements.builderSkillHint.textContent = `Selected skills: ${selectedBuilderSkillIds.length} / 4`;
+    } else if (builderMode === "manual") {
+      elements.builderSkillHint.textContent = "Select up to four starting skills. Empty slots stay inactive.";
+    } else {
+      elements.builderSkillHint.textContent = "Random mode rolls weighted starting skills before spending the rest on stats.";
+    }
   }
 
   function setBuilderMode(mode) {
@@ -161,6 +184,11 @@ export function createBuilderUI(elements, options) {
     return stats;
   }
 
+  function skillNameById(id) {
+    const idx = selectableSkillIds.indexOf(id);
+    return idx >= 0 ? selectableSkillNames[idx] || id : id;
+  }
+
   function renderBuilderTraits() {
     elements.builderTraitChoices.innerHTML = "";
     const frag = document.createDocumentFragment();
@@ -184,14 +212,13 @@ export function createBuilderUI(elements, options) {
       `;
       button.addEventListener("click", () => {
         if (builderMode !== "manual") return;
-        const candidate = [id];
         const stats = readStats();
-        const totalCost = calcTotalCost(stats) + Number(cost || 0);
+        const totalCost = calcTotalCost(stats) + Number(cost || 0) + selectedBuilderSkillCost();
         if (totalCost > startBuildBudget) {
-          elements.builderError.textContent = `Trait budget exceeded: ${totalCost.toFixed(1)} / ${startBuildBudget.toFixed(1)}`;
+          elements.builderError.textContent = `Build budget exceeded: ${totalCost.toFixed(1)} / ${startBuildBudget.toFixed(1)}`;
           return;
         }
-        selectedBuilderTraitIds = candidate;
+        selectedBuilderTraitIds = [id];
         elements.builderError.textContent = "";
         renderBuilderTraits();
         refreshBudgetText();
@@ -202,16 +229,100 @@ export function createBuilderUI(elements, options) {
     elements.builderTraitChoices.appendChild(frag);
   }
 
+  function renderBuilderSkills() {
+    elements.builderSkillChoices.innerHTML = "";
+    const frag = document.createDocumentFragment();
+    const selectedSet = new Set(selectedBuilderSkillIds);
+
+    for (let i = 0; i < selectableSkillIds.length; i += 1) {
+      const id = selectableSkillIds[i];
+      const name = selectableSkillNames[i] || id;
+      const cost = Number(selectableSkillCosts[i] || 0);
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "builder-trait-option";
+      if (selectedSet.has(id)) {
+        button.classList.add("is-selected");
+      }
+      button.disabled = builderMode !== "manual";
+      button.innerHTML = `
+        <span class="builder-trait-name">${name}</span>
+        <span class="builder-trait-cost">Cost ${cost}</span>
+        <span class="builder-trait-id">${id}</span>
+      `;
+      button.addEventListener("click", () => {
+        if (builderMode !== "manual") return;
+
+        const next = selectedSet.has(id)
+          ? selectedBuilderSkillIds.filter((skillId) => skillId !== id)
+          : [...selectedBuilderSkillIds, id];
+
+        if (!selectedSet.has(id) && next.length > 4) {
+          elements.builderError.textContent = "You can equip up to four starting skills.";
+          return;
+        }
+
+        const totalSkillCost = next.reduce((sum, skillId) => {
+          const idx = selectableSkillIds.indexOf(skillId);
+          return sum + (idx >= 0 ? Number(selectableSkillCosts[idx] || 0) : 0);
+        }, 0);
+        const totalCost = calcTotalCost(readStats()) + selectedBuilderTraitCost() + totalSkillCost;
+        if (totalCost > startBuildBudget) {
+          elements.builderError.textContent = `Build budget exceeded: ${totalCost.toFixed(1)} / ${startBuildBudget.toFixed(1)}`;
+          return;
+        }
+
+        selectedBuilderSkillIds = next;
+        elements.builderError.textContent = "";
+        renderBuilderSkills();
+        refreshBudgetText();
+      });
+      frag.appendChild(button);
+    }
+
+    elements.builderSkillChoices.appendChild(frag);
+  }
+
   function sampleBuilderTrait() {
     const sampled = sampleTraitIds(randomSeed32(), 1);
     selectedBuilderTraitIds = sampled.slice(0, 1);
   }
 
+  function sampleBuilderSkills(targetCount = 2) {
+    selectedBuilderSkillIds = [];
+    const sampled = sampleSkillIds(randomSeed32(), selectableSkillIds.length);
+    const currentFixedCost = selectedBuilderTraitCost();
+    let remaining = randomBuildBudget - currentFixedCost;
+
+    for (const skillId of sampled) {
+      if (selectedBuilderSkillIds.length >= targetCount) {
+        break;
+      }
+      const idx = selectableSkillIds.indexOf(skillId);
+      const cost = idx >= 0 ? Number(selectableSkillCosts[idx] || 0) : 0;
+      if (cost <= remaining) {
+        selectedBuilderSkillIds.push(skillId);
+        remaining -= cost;
+      }
+    }
+
+    if (selectedBuilderSkillIds.length === 0 && selectableSkillIds[0]) {
+      const fallbackId = selectableSkillIds[0];
+      const fallbackCost = Number(selectableSkillCosts[0] || 0);
+      if (fallbackCost <= remaining) {
+        selectedBuilderSkillIds = [fallbackId];
+      }
+    }
+  }
+
   function generateRandomBuild() {
     sampleBuilderTrait();
-    const stats = generateRandomStats(randomBuildBudget - selectedBuilderTraitCost());
+    sampleBuilderSkills(2);
+    const fixedCost = selectedBuilderTraitCost() + selectedBuilderSkillCost();
+    const stats = generateRandomStats(Math.max(0, randomBuildBudget - fixedCost));
     writeStats(stats);
     renderBuilderTraits();
+    renderBuilderSkills();
     refreshBudgetText(stats);
   }
 
@@ -228,6 +339,9 @@ export function createBuilderUI(elements, options) {
     if (selectedBuilderTraitIds.length !== 1) {
       errors.push("Select exactly one starting trait");
     }
+    if (selectedBuilderSkillIds.length > 4) {
+      errors.push("Select up to four starting skills");
+    }
     if (summary.totalCost > currentBudgetCap()) {
       errors.push(`Budget exceeded: ${summary.totalCost.toFixed(1)} / ${currentBudgetCap().toFixed(1)}`);
     }
@@ -235,11 +349,14 @@ export function createBuilderUI(elements, options) {
     return { ok: errors.length === 0, errors, ...summary };
   }
 
-  function open({ ids, names, costs }) {
+  function open({ traits, skills }) {
     elements.builderError.textContent = "";
-    selectableTraitIds = ids;
-    selectableTraitNames = names;
-    selectableTraitCosts = costs;
+    selectableTraitIds = traits.ids;
+    selectableTraitNames = traits.names;
+    selectableTraitCosts = traits.costs;
+    selectableSkillIds = skills.ids;
+    selectableSkillNames = skills.names;
+    selectableSkillCosts = skills.costs;
     elements.builderModeRandom.checked = true;
     elements.builderModeManual.checked = false;
     setBuilderMode("random");
@@ -250,7 +367,11 @@ export function createBuilderUI(elements, options) {
     selectableTraitIds = [];
     selectableTraitNames = [];
     selectableTraitCosts = [];
+    selectableSkillIds = [];
+    selectableSkillNames = [];
+    selectableSkillCosts = [];
     selectedBuilderTraitIds = [];
+    selectedBuilderSkillIds = [];
     elements.builderError.textContent = "";
   }
 
@@ -267,7 +388,11 @@ export function createBuilderUI(elements, options) {
     if (selectedBuilderTraitIds.length === 0 && selectableTraitIds[0]) {
       selectedBuilderTraitIds = [selectableTraitIds[0]];
     }
+    if (selectedBuilderSkillIds.length === 0 && selectableSkillIds[0]) {
+      selectedBuilderSkillIds = [selectableSkillIds[0]];
+    }
     renderBuilderTraits();
+    renderBuilderSkills();
     elements.builderError.textContent = "";
     refreshBudgetText();
   });
@@ -282,6 +407,7 @@ export function createBuilderUI(elements, options) {
       generateRandomBuild();
     } else {
       renderBuilderTraits();
+      renderBuilderSkills();
       refreshBudgetText();
     }
     elements.builderError.textContent = "";
@@ -290,6 +416,7 @@ export function createBuilderUI(elements, options) {
   Object.values(elements.statInputs).forEach((el) => {
     el.addEventListener("input", () => {
       renderBuilderTraits();
+      renderBuilderSkills();
       refreshBudgetText();
     });
   });
@@ -299,6 +426,7 @@ export function createBuilderUI(elements, options) {
     const checked = validateStatsForConfirm(stats);
     elements.builderStatsCostText.textContent = checked.statsCost.toFixed(1);
     elements.builderTraitCostText.textContent = checked.traitsCost.toFixed(0);
+    elements.builderSkillCostText.textContent = checked.skillsCost.toFixed(0);
     elements.builderBudgetText.textContent = `${checked.totalCost.toFixed(1)} / ${currentBudgetCap().toFixed(1)}`;
     elements.builderRemainingText.textContent = checked.remainingBudget.toFixed(1);
 
@@ -308,7 +436,11 @@ export function createBuilderUI(elements, options) {
     }
 
     elements.builderError.textContent = "";
-    onConfirm({ stats, traitIds: [...selectedBuilderTraitIds] });
+    onConfirm({
+      stats,
+      traitIds: [...selectedBuilderTraitIds],
+      skillIds: [...selectedBuilderSkillIds],
+    });
   });
 
   elements.builderCancelBtn.addEventListener("click", () => {

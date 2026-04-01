@@ -26,3 +26,10 @@ Original prompt: 로그는 consolelog로 옮기는 방향으로 진행하자. 1�
 - `site/main.js` now focuses on WASM boot, run loop, event formatting, and module orchestration.
 - Added `site/wasm/client.js` so `main.js` no longer imports wasm-bindgen exports directly.
 - Current remaining split candidates: event/log formatting and run-loop state machine helpers.
+- 2026-04-01: Starting skills are now being moved into the builder budget system.
+- Added skill `cost` and `selectable_skills` support to `core/data/skills.json` and embedded data compilation.
+- Added run-specific player skill loadout override support in WASM instead of always using the fixed global player loadout.
+- Builder now tracks `stats + trait + skills` cost together, with one starting trait and one-to-four starting skills.
+- Random builder currently rolls one weighted trait, then weighted starting skills, then spends the rest of the budget on stats.
+- Verification: `cargo test` passed (21 tests), `node --check` passed for updated frontend modules, `run_wasm_site.sh` rebuilt successfully.
+- Verification limit: automated browser check is still blocked in this environment because the shared Playwright client cannot import the `playwright` package.
