@@ -11,18 +11,18 @@
 ## 읽는 순서
 
 1. 이 문서에서 가능한 primitive를 확인
-2. [schema.md](/Users/lavumi/private/overstack/core/data/schema.md)에서 JSON 필드 형식 확인
-3. [skills.json](/Users/lavumi/private/overstack/core/data/skills.json), [traits.json](/Users/lavumi/private/overstack/core/data/traits.json), [enemies.json](/Users/lavumi/private/overstack/core/data/enemies.json)에서 실제 예제 확인
+2. `core/data/schema.md`에서 JSON 필드 형식 확인
+3. `core/data/skills.json`, `core/data/traits.json`, `core/data/enemies.json`에서 실제 예제 확인
 
 ## 선언 / 검증 / 구현 위치
 
-- 선언: [specs.rs](/Users/lavumi/private/overstack/core/src/data/specs.rs)
-- 검증: [validate.rs](/Users/lavumi/private/overstack/core/src/data/validate.rs)
-- 컴파일: [compile.rs](/Users/lavumi/private/overstack/core/src/data/compile.rs)
-- 스킬 실행: [skill_exec.rs](/Users/lavumi/private/overstack/core/src/engine/skill_exec.rs)
-- 특성 실행: [trait_system.rs](/Users/lavumi/private/overstack/core/src/engine/trait_system.rs)
-- 상태이상 처리: [status_system.rs](/Users/lavumi/private/overstack/core/src/engine/status_system.rs)
-- 조건 평가: [combat_state.rs](/Users/lavumi/private/overstack/core/src/engine/combat_state.rs)
+- 선언: `core/src/data/specs.rs`
+- 검증: `core/src/data/validate.rs`
+- 컴파일: `core/src/data/compile.rs`
+- 스킬 실행: `core/src/engine/skill_exec.rs`
+- 특성 실행: `core/src/engine/trait_system.rs`
+- 상태이상 처리: `core/src/engine/status_system.rs`
+- 조건 평가: `core/src/engine/combat_state.rs`
 
 ## Status
 
@@ -46,8 +46,8 @@
 
 핵심 구현 위치:
 
-- [status_system.rs](/Users/lavumi/private/overstack/core/src/engine/status_system.rs)
-- [combat_state.rs](/Users/lavumi/private/overstack/core/src/engine/combat_state.rs)
+- `core/src/engine/status_system.rs`
+- `core/src/engine/combat_state.rs`
 
 ## Condition
 
@@ -102,7 +102,7 @@
 
 관련 문서:
 
-- trait timing model: [trait_timing_model.md](/Users/lavumi/private/overstack/docs/trait_timing_model.md)
+- trait timing model: [Trait Timing Model](trait_timing_model.md)
 
 ## Effect
 

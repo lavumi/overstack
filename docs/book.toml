@@ -1,0 +1,11 @@
+[book]
+authors = ["Overstack"]
+language = "ko"
+multilingual = false
+src = "."
+title = "Overstack Docs"
+
+[output.html]
+default-theme = "navy"
+git-repository-url = "https://github.com/lavumi/overstack"
+site-url = "/overstack/docs/"

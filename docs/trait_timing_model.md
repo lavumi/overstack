@@ -73,8 +73,8 @@
 
 코드 위치:
 
-- phase 정의: [trait_spec.rs](/Users/lavumi/private/overstack/core/src/trait_spec.rs)
-- dispatch/emit 함수: [trait_system.rs](/Users/lavumi/private/overstack/core/src/engine/trait_system.rs)
+- phase 정의: `core/src/trait_spec.rs`
+- dispatch/emit 함수: `core/src/engine/trait_system.rs`
 
 ## 현재 trait 분류
 
@@ -104,17 +104,17 @@
 
 현재 trait 호출 이름도 시점을 드러내도록 정리되어 있습니다.
 
-- pre-action: [skill_exec.rs](/Users/lavumi/private/overstack/core/src/engine/skill_exec.rs)
+- pre-action: `core/src/engine/skill_exec.rs`
   - `emit_pre_action_trait_triggers(...)`
-- post-damage: [status_system.rs](/Users/lavumi/private/overstack/core/src/engine/status_system.rs)
+- post-damage: `core/src/engine/status_system.rs`
   - `emit_post_damage_trait_triggers(...)`
-- post-status: [status_system.rs](/Users/lavumi/private/overstack/core/src/engine/status_system.rs)
+- post-status: `core/src/engine/status_system.rs`
   - `emit_post_status_trait_triggers(...)`
-- status tick: [status_system.rs](/Users/lavumi/private/overstack/core/src/engine/status_system.rs)
+- status tick: `core/src/engine/status_system.rs`
   - `emit_status_tick_trait_triggers(...)`
-- battle start: [run_flow.rs](/Users/lavumi/private/overstack/core/src/engine/run_flow.rs)
+- battle start: `core/src/engine/run_flow.rs`
   - `emit_battle_start_trait_triggers(...)`
-- battle end: [trait_system.rs](/Users/lavumi/private/overstack/core/src/engine/trait_system.rs)
+- battle end: `core/src/engine/trait_system.rs`
   - `emit_battle_end_triggers(...)`
 
 ## 새 trait를 추가할 때의 질문

@@ -34,7 +34,7 @@
 
 ### 2. 기존 primitive로 표현 가능한지 확인
 
-먼저 [content_primitives.md](/Users/lavumi/private/overstack/docs/content_primitives.md)를 본다.
+먼저 [Content Primitives](content_primitives.md)를 본다.
 
 확인 질문:
 
@@ -47,21 +47,21 @@
 
 ### 3. config 작성
 
-- 스킬: [skills.json](/Users/lavumi/private/overstack/core/data/skills.json)
-- 특성: [traits.json](/Users/lavumi/private/overstack/core/data/traits.json)
-- 몬스터: [enemies.json](/Users/lavumi/private/overstack/core/data/enemies.json)
+- 스킬: `core/data/skills.json`
+- 특성: `core/data/traits.json`
+- 몬스터: `core/data/enemies.json`
 
 ### 4. 검증 / 테스트
 
 ```bash
-cd /Users/lavumi/private/overstack/core
+cd core
 cargo test
 ```
 
 필요하면 WASM 빌드도 수행:
 
 ```bash
-cd /Users/lavumi/private/overstack/core
+cd core
 cargo build --target wasm32-unknown-unknown --release
 wasm-bindgen --target web --out-dir ../site/pkg target/wasm32-unknown-unknown/release/core.wasm
 ```
@@ -101,17 +101,17 @@ wasm-bindgen --target web --out-dir ../site/pkg target/wasm32-unknown-unknown/re
 
 새 primitive 추가 시 보통 아래를 같이 수정:
 
-1. [specs.rs](/Users/lavumi/private/overstack/core/src/data/specs.rs)
-2. [validate.rs](/Users/lavumi/private/overstack/core/src/data/validate.rs)
-3. [compile.rs](/Users/lavumi/private/overstack/core/src/data/compile.rs)
+1. `core/src/data/specs.rs`
+2. `core/src/data/validate.rs`
+3. `core/src/data/compile.rs`
 4. 관련 engine 구현 파일
 
 대표 위치:
 
-- condition 평가: [combat_state.rs](/Users/lavumi/private/overstack/core/src/engine/combat_state.rs)
-- effect 실행: [skill_exec.rs](/Users/lavumi/private/overstack/core/src/engine/skill_exec.rs), [trait_system.rs](/Users/lavumi/private/overstack/core/src/engine/trait_system.rs)
-- 상태이상 처리: [status_system.rs](/Users/lavumi/private/overstack/core/src/engine/status_system.rs)
-- trait 시점 모델: [trait_timing_model.md](/Users/lavumi/private/overstack/docs/trait_timing_model.md)
+- condition 평가: `core/src/engine/combat_state.rs`
+- effect 실행: `core/src/engine/skill_exec.rs`, `core/src/engine/trait_system.rs`
+- 상태이상 처리: `core/src/engine/status_system.rs`
+- trait 시점 모델: [Trait Timing Model](trait_timing_model.md)
 
 ### 4. 테스트 추가
 
@@ -131,9 +131,9 @@ wasm-bindgen --target web --out-dir ../site/pkg target/wasm32-unknown-unknown/re
 
 primitive를 추가했으면 같이 갱신:
 
-- [content_primitives.md](/Users/lavumi/private/overstack/docs/content_primitives.md)
-- 필요 시 [README.md](/Users/lavumi/private/overstack/README.md)
-- 필요 시 [schema.md](/Users/lavumi/private/overstack/core/data/schema.md)
+- [Content Primitives](content_primitives.md)
+- 필요 시 `README.md`
+- 필요 시 `core/data/schema.md`
 
 ## C. 리뷰 체크리스트
 

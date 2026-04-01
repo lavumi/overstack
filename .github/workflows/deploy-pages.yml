@@ -2,7 +2,7 @@ name: Deploy Site to GitHub Pages
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "master"]
   workflow_dispatch:
 
 permissions:
@@ -31,12 +31,22 @@ jobs:
         with:
           workspaces: core
 
-      - name: Install wasm-pack
-        run: cargo install wasm-pack --locked
+      - name: Install wasm-bindgen-cli
+        run: cargo install wasm-bindgen-cli --locked
+
+      - name: Install mdBook
+        run: cargo install mdbook --locked
+
+      - name: Build WASM core
+        working-directory: core
+        run: cargo build --target wasm32-unknown-unknown --release
 
       - name: Build WASM package
         working-directory: core
-        run: wasm-pack build --target web --out-dir ../site/pkg
+        run: wasm-bindgen --target web --out-dir ../site/pkg target/wasm32-unknown-unknown/release/core.wasm
+
+      - name: Build mdBook docs
+        run: mdbook build docs -d ../site/docs
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
