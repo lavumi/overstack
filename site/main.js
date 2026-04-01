@@ -3,12 +3,14 @@ import init, {
   create_run_with_stats,
   destroy_run,
   get_player_skills,
+  get_selectable_trait_costs,
   get_selectable_trait_ids,
   get_selectable_trait_names,
   get_snapshot,
   reset_run,
   run_run,
-  set_active_trait,
+  sample_starting_trait_ids,
+  set_active_traits,
   step_with_action,
 } from "./pkg/core.js";
 
@@ -68,6 +70,11 @@ const builderOverlay = document.getElementById("builderOverlay");
 const builderModeRandom = document.getElementById("builderModeRandom");
 const builderModeManual = document.getElementById("builderModeManual");
 const builderBudgetText = document.getElementById("builderBudgetText");
+const builderStatsCostText = document.getElementById("builderStatsCostText");
+const builderTraitCostText = document.getElementById("builderTraitCostText");
+const builderRemainingText = document.getElementById("builderRemainingText");
+const builderTraitHint = document.getElementById("builderTraitHint");
+const builderTraitChoices = document.getElementById("builderTraitChoices");
 const builderError = document.getElementById("builderError");
 const builderRandomBtn = document.getElementById("builderRandomBtn");
 const builderRerollBtn = document.getElementById("builderRerollBtn");
@@ -89,7 +96,7 @@ const STEP_DT_BASE = 0.15;
 const LOOP_MS = 120;
 const MAX_NODES = 6;
 const CRIT_C = 100;
-const STAT_BUDGET = 100;
+const START_BUILD_BUDGET = 100;
 
 const DEFAULT_BUILDER_STATS = {
   max_hp: 130,
@@ -115,8 +122,11 @@ const STAT_RANGES = {
 
 let currentHandle = null;
 let loopTimer = null;
-let uiMode = "idle"; // idle | builder | trait_select | running | need_input | ended
+let uiMode = "idle"; // idle | builder | running | need_input | ended
 let selectableTraitIds = [];
+let selectableTraitNames = [];
+let selectableTraitCosts = [];
+let selectedBuilderTraitIds = [];
 let lastEnemyName = "Enemy";
 let builderMode = "random";
 
@@ -152,14 +162,6 @@ function setCombatLabels(skillNames) {
   actionBasicBtn.textContent = "Basic Attack";
   for (let i = 0; i < actionSkillButtons.length; i += 1) {
     actionSkillButtons[i].textContent = skillNames[i] || `Skill ${i + 1}`;
-  }
-}
-
-function setTraitLabels(traitNames) {
-  const labels = [traitNames[0], traitNames[1], traitNames[2], traitNames[3], traitNames[4]];
-  actionBasicBtn.textContent = labels[0] || "Trait 1";
-  for (let i = 0; i < actionSkillButtons.length; i += 1) {
-    actionSkillButtons[i].textContent = labels[i + 1] || `Trait ${i + 2}`;
   }
 }
 
@@ -227,6 +229,95 @@ function renderTraitList(container, traits) {
     "No active traits",
     "trait-pill",
   );
+}
+
+function randomSeed32() {
+  return Math.floor(Math.random() * 0x100000000) >>> 0;
+}
+
+function selectedBuilderTraitName() {
+  return selectedBuilderTraitIds
+    .map((selectedId) => {
+      const idx = selectableTraitIds.indexOf(selectedId);
+      return idx >= 0 ? selectableTraitNames[idx] || selectedId : selectedId;
+    })
+    .join(", ");
+}
+
+function renderBuilderTraits() {
+  builderTraitChoices.innerHTML = "";
+  const frag = document.createDocumentFragment();
+  const selectedSet = new Set(selectedBuilderTraitIds);
+
+  for (let i = 0; i < selectableTraitIds.length; i += 1) {
+    const id = selectableTraitIds[i];
+    const name = selectableTraitNames[i] || id;
+    const cost = Number(selectableTraitCosts[i] || 0);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "builder-trait-option";
+    if (selectedSet.has(id)) {
+      button.classList.add("is-selected");
+    }
+    button.disabled = builderMode !== "manual";
+    button.innerHTML = `
+      <span class="builder-trait-name">${name}</span>
+      <span class="builder-trait-cost">Cost ${cost}</span>
+      <span class="builder-trait-id">${id}</span>
+    `;
+    button.addEventListener("click", () => {
+      if (builderMode !== "manual") return;
+      if (selectedSet.has(id)) {
+        selectedBuilderTraitIds = selectedBuilderTraitIds.filter((traitId) => traitId !== id);
+      } else {
+        const candidate = [...selectedBuilderTraitIds, id];
+        const stats = readBuilderStats();
+        const candidateCost = candidate.reduce((sum, traitId) => {
+          const traitIdx = selectableTraitIds.indexOf(traitId);
+          return sum + Number(selectableTraitCosts[traitIdx] || 0);
+        }, 0);
+        const totalCost = calcTotalCost(stats) + candidateCost;
+        if (totalCost > START_BUILD_BUDGET) {
+          builderError.textContent = `Trait budget exceeded: ${totalCost.toFixed(1)} / ${START_BUILD_BUDGET.toFixed(1)}`;
+          return;
+        }
+        selectedBuilderTraitIds = candidate;
+      }
+      builderError.textContent = "";
+      renderBuilderTraits();
+      refreshBudgetText();
+    });
+    frag.appendChild(button);
+  }
+
+  builderTraitChoices.appendChild(frag);
+}
+
+function sampleBuilderTraits() {
+  const stats = readBuilderStats();
+  const statsCost = calcTotalCost(stats);
+  let remaining = START_BUILD_BUDGET - statsCost;
+  if (remaining <= 0) {
+    selectedBuilderTraitIds = [];
+    renderBuilderTraits();
+    refreshBudgetText(stats);
+    return;
+  }
+
+  const sampled = sample_starting_trait_ids(randomSeed32(), selectableTraitIds.length);
+  const picked = [];
+  for (const traitId of sampled) {
+    const idx = selectableTraitIds.indexOf(traitId);
+    const cost = idx >= 0 ? Number(selectableTraitCosts[idx] || 0) : 0;
+    if (cost <= remaining) {
+      picked.push(traitId);
+      remaining -= cost;
+    }
+  }
+
+  selectedBuilderTraitIds = picked;
+  renderBuilderTraits();
+  refreshBudgetText(stats);
 }
 
 function unitStageState(unit) {
@@ -307,6 +398,9 @@ function resetAll() {
   setActionButtonsEnabled(false);
   setInputPrompt("");
   selectableTraitIds = [];
+  selectableTraitNames = [];
+  selectableTraitCosts = [];
+  selectedBuilderTraitIds = [];
   closeBuilder();
   uiMode = "idle";
 }
@@ -568,15 +662,52 @@ function calcTotalCost(stats) {
   return hp_cost + atk_cost + matk_cost + def_cost + mdef_cost + speed_cost + crit_rate_cost + crit_mult_cost;
 }
 
+function calcSelectedBuilderTraitCost() {
+  if (!selectedBuilderTraitIds.length || !selectableTraitIds.length) {
+    return 0;
+  }
+
+  let total = 0;
+  for (const traitId of selectedBuilderTraitIds) {
+    const idx = selectableTraitIds.indexOf(traitId);
+    if (idx >= 0) {
+      total += Number(selectableTraitCosts[idx] || 0);
+    }
+  }
+  return total;
+}
+
+function calcBuildCost(stats = readBuilderStats()) {
+  const statsCost = calcTotalCost(stats);
+  const traitsCost = calcSelectedBuilderTraitCost();
+  const totalCost = statsCost + traitsCost;
+  const remainingBudget = START_BUILD_BUDGET - totalCost;
+  return {
+    statsCost,
+    traitsCost,
+    totalCost,
+    remainingBudget,
+  };
+}
+
 function refreshBudgetText(stats = readBuilderStats()) {
-  const total = calcTotalCost(stats);
-  builderBudgetText.textContent = `${total.toFixed(1)} / ${STAT_BUDGET.toFixed(1)}`;
+  const summary = calcBuildCost(stats);
+  builderStatsCostText.textContent = summary.statsCost.toFixed(1);
+  builderTraitCostText.textContent = summary.traitsCost.toFixed(0);
+  builderBudgetText.textContent = `${summary.totalCost.toFixed(1)} / ${START_BUILD_BUDGET.toFixed(1)}`;
+  builderRemainingText.textContent = summary.remainingBudget.toFixed(1);
+  const traitName = selectedBuilderTraitName();
+  builderTraitHint.textContent = traitName
+    ? `Selected traits: ${traitName}`
+    : builderMode === "manual"
+      ? "Select any starting traits that fit the remaining budget."
+      : "Random mode rolls weighted traits that fit the remaining budget.";
 }
 
 function generateRandomStats() {
   const stats = { ...DEFAULT_BUILDER_STATS };
   let guard = 0;
-  while (calcTotalCost(stats) < STAT_BUDGET && guard < 2000) {
+  while (calcTotalCost(stats) < START_BUILD_BUDGET && guard < 2000) {
     guard += 1;
     const roll = Math.random();
     const candidate = { ...stats };
@@ -599,7 +730,7 @@ function generateRandomStats() {
     if (candidate.crit_rate > STAT_RANGES.crit_rate[1]) continue;
     if (candidate.crit_mult > STAT_RANGES.crit_mult[1]) continue;
 
-    if (calcTotalCost(candidate) <= STAT_BUDGET) {
+    if (calcTotalCost(candidate) <= START_BUILD_BUDGET) {
       Object.assign(stats, candidate);
     }
   }
@@ -619,21 +750,25 @@ function validateStatsForConfirm(stats) {
     }
   }
 
-  const totalCost = calcTotalCost(stats);
-  if (totalCost > STAT_BUDGET) {
-    errors.push(`Budget exceeded: ${totalCost.toFixed(1)} / ${STAT_BUDGET.toFixed(1)}`);
+  const summary = calcBuildCost(stats);
+  if (summary.totalCost > START_BUILD_BUDGET) {
+    errors.push(`Budget exceeded: ${summary.totalCost.toFixed(1)} / ${START_BUILD_BUDGET.toFixed(1)}`);
   }
 
-  return { ok: errors.length === 0, errors, totalCost };
+  return { ok: errors.length === 0, errors, ...summary };
 }
 
 function openBuilder() {
   builderOverlay.classList.remove("hidden");
   builderError.textContent = "";
+  selectableTraitNames = get_selectable_trait_names();
+  selectableTraitIds = get_selectable_trait_ids();
+  selectableTraitCosts = get_selectable_trait_costs();
   builderModeRandom.checked = true;
   builderModeManual.checked = false;
   setBuilderMode("random");
   writeBuilderStats(generateRandomStats());
+  sampleBuilderTraits();
   uiMode = "builder";
 }
 
@@ -661,16 +796,23 @@ function startRunWithStats(stats) {
     stats.crit_rate,
     stats.crit_mult,
   );
+  if (selectedBuilderTraitIds[0]) {
+    const ok = set_active_traits(currentHandle, selectedBuilderTraitIds.join(","));
+    if (!ok) {
+      setArenaStatus("Trait apply failed");
+      return;
+    }
+  }
 
-  const traitNames = get_selectable_trait_names();
-  selectableTraitIds = get_selectable_trait_ids();
-  setTraitLabels(traitNames);
-  setActionButtonsEnabled(true);
-  setInputPrompt("Choose one trait");
-  setArenaStatus("Choose a starting trait");
-  uiMode = "trait_select";
+  const skills = get_player_skills(currentHandle);
+  setCombatLabels(skills);
+  setActionButtonsEnabled(false);
+  setInputPrompt("");
+  setArenaStatus("Simulation running");
+  uiMode = "running";
 
   updateHudFromSnapshot(get_snapshot(currentHandle));
+  startLoop();
 }
 
 function submitCombatAction(actionKind, actionArg) {
@@ -690,39 +832,7 @@ function submitCombatAction(actionKind, actionArg) {
   }
 }
 
-function chooseTraitByButtonIndex(index) {
-  if (currentHandle === null || uiMode !== "trait_select") {
-    return;
-  }
-
-  const traitId = selectableTraitIds[index];
-  if (!traitId) {
-    return;
-  }
-
-  const ok = set_active_trait(currentHandle, traitId);
-  if (!ok) {
-    setArenaStatus("Trait select failed");
-    return;
-  }
-
-  const skills = get_player_skills(currentHandle);
-  setCombatLabels(skills);
-  setActionButtonsEnabled(false);
-  setInputPrompt("");
-  setArenaStatus("Simulation running");
-  updateHudFromSnapshot(get_snapshot(currentHandle));
-
-  uiMode = "running";
-  startLoop();
-}
-
 function onActionButton(index) {
-  if (uiMode === "trait_select") {
-    chooseTraitByButtonIndex(index);
-    return;
-  }
-
   if (uiMode === "need_input") {
     if (index === 0) {
       submitCombatAction("basic", -1);
@@ -758,28 +868,38 @@ builderModeRandom.addEventListener("change", () => {
   if (!builderModeRandom.checked) return;
   setBuilderMode("random");
   writeBuilderStats(generateRandomStats());
+  sampleBuilderTraits();
   builderError.textContent = "";
 });
 
 builderModeManual.addEventListener("change", () => {
   if (!builderModeManual.checked) return;
   setBuilderMode("manual");
+  renderBuilderTraits();
   builderError.textContent = "";
   refreshBudgetText();
 });
 
 builderRandomBtn.addEventListener("click", () => {
   writeBuilderStats(generateRandomStats());
+  sampleBuilderTraits();
   builderError.textContent = "";
 });
 
 builderRerollBtn.addEventListener("click", () => {
-  writeBuilderStats(generateRandomStats());
+  if (builderMode === "random") {
+    writeBuilderStats(generateRandomStats());
+    sampleBuilderTraits();
+  } else {
+    renderBuilderTraits();
+    refreshBudgetText();
+  }
   builderError.textContent = "";
 });
 
 Object.values(statInputs).forEach((el) => {
   el.addEventListener("input", () => {
+    renderBuilderTraits();
     refreshBudgetText();
   });
 });
@@ -787,7 +907,10 @@ Object.values(statInputs).forEach((el) => {
 builderConfirmBtn.addEventListener("click", () => {
   const stats = readBuilderStats();
   const checked = validateStatsForConfirm(stats);
-  builderBudgetText.textContent = `${checked.totalCost.toFixed(1)} / ${STAT_BUDGET.toFixed(1)}`;
+  builderStatsCostText.textContent = checked.statsCost.toFixed(1);
+  builderTraitCostText.textContent = checked.traitsCost.toFixed(0);
+  builderBudgetText.textContent = `${checked.totalCost.toFixed(1)} / ${START_BUILD_BUDGET.toFixed(1)}`;
+  builderRemainingText.textContent = checked.remainingBudget.toFixed(1);
 
   if (!checked.ok) {
     builderError.textContent = checked.errors.join(" | ");

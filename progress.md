@@ -7,5 +7,10 @@ Original prompt: 로그는 consolelog로 옮기는 방향으로 진행하자. 1�
 - Added central duel cards for player/enemy with state summaries driven by snapshot data.
 - Verification: `node --check site/main.js` passed.
 - Verification limit: local Playwright run was blocked because the shared client could not import the `playwright` package in this environment.
+- 2026-04-01: Builder now owns starting trait selection instead of deferring to a separate trait-pick phase.
+- Added weighted starting-trait sampling export from WASM and hooked random builder generation into it.
+- Start budget summary now reports stats cost, trait cost, total cost, and remaining budget together.
+- Expanded starting trait selection from single-pick to budget-constrained multi-pick.
+- Random builder mode now samples a weighted trait order from WASM and greedily fits as many traits as the remaining build budget allows.
 - TODO: Browser-check the new layout and confirm no runtime errors after the scene-first HUD pass.
 - TODO: Consider splitting `site/main.js` into smaller UI modules before adding canvas or richer animations.

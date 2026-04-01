@@ -75,6 +75,18 @@ pub fn selectable_trait_ids() -> Vec<String> {
     Vec::new()
 }
 
+pub fn selectable_trait_costs() -> Vec<u32> {
+    if let Ok(data) = crate::data::load_embedded_game_data() {
+        return data
+            .selectable_traits
+            .iter()
+            .filter_map(|id| data.traits.get(*id))
+            .map(|t| t.cost)
+            .collect();
+    }
+    Vec::new()
+}
+
 pub fn calc_traits_cost(selected_trait_ids: &[TraitId]) -> u32 {
     if let Ok(data) = crate::data::load_embedded_game_data() {
         return selected_trait_ids

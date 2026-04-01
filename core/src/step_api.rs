@@ -2,8 +2,11 @@ use wasm_bindgen::prelude::*;
 
 use crate::engine::runtime::ActionKind;
 use crate::model::PlayerInitStats;
+use crate::rng::SimpleRng;
 use crate::skill::player_skill_names;
-use crate::trait_spec::{selectable_trait_ids, selectable_trait_names};
+use crate::trait_spec::{
+    sample_trait_choices, selectable_trait_costs, selectable_trait_ids, selectable_trait_names,
+};
 
 mod manager;
 
@@ -219,8 +222,32 @@ pub fn get_selectable_trait_ids() -> Vec<String> {
 }
 
 #[wasm_bindgen]
+pub fn get_selectable_trait_costs() -> Vec<u32> {
+    selectable_trait_costs()
+}
+
+#[wasm_bindgen]
+pub fn sample_starting_trait_ids(seed: u32, n: u32) -> Vec<String> {
+    let mut rng = SimpleRng::new(seed as u64);
+    sample_trait_choices(&mut rng, &[], n as usize)
+        .into_iter()
+        .map(|id| id.to_string())
+        .collect()
+}
+
+#[wasm_bindgen]
 pub fn set_active_trait(handle: u32, trait_id: &str) -> bool {
     manager::with_run_mut(handle, |run| run.set_single_active_trait(trait_id)).unwrap_or(false)
+}
+
+#[wasm_bindgen]
+pub fn set_active_traits(handle: u32, trait_ids_csv: &str) -> bool {
+    let selected = trait_ids_csv
+        .split(',')
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .collect::<Vec<_>>();
+    manager::with_run_mut(handle, |run| run.apply_traits_to_run(&selected)).unwrap_or(false)
 }
 
 #[cfg(test)]

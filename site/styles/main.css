@@ -447,6 +447,69 @@ body {
   gap: 10px;
 }
 
+.builder-traits {
+  display: grid;
+  gap: 10px;
+}
+
+.builder-trait-hint {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.builder-trait-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.builder-trait-option {
+  min-width: 180px;
+  flex: 1 1 220px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(138, 176, 197, 0.2);
+  background: linear-gradient(180deg, rgba(26, 37, 51, 0.98), rgba(14, 23, 31, 0.96));
+  color: var(--text);
+  text-align: left;
+  display: grid;
+  gap: 6px;
+  cursor: pointer;
+  transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.builder-trait-option:hover {
+  border-color: rgba(123, 223, 246, 0.4);
+  transform: translateY(-1px);
+}
+
+.builder-trait-option.is-selected {
+  border-color: rgba(140, 243, 255, 0.58);
+  box-shadow: 0 0 0 1px rgba(140, 243, 255, 0.16), 0 10px 28px rgba(34, 100, 130, 0.22);
+}
+
+.builder-trait-option:disabled {
+  cursor: default;
+  opacity: 0.9;
+}
+
+.builder-trait-name {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.builder-trait-cost {
+  color: var(--accent-strong);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.builder-trait-id {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .builder-field {
   display: grid;
   gap: 6px;
@@ -466,6 +529,19 @@ body {
 .builder-meta {
   color: #c4d8ed;
   font-size: 14px;
+}
+
+.builder-budget-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 18px;
+}
+
+.builder-budget-grid span {
+  display: inline-block;
+  margin-left: 8px;
+  color: var(--text);
+  font-weight: 600;
 }
 
 .builder-error {
