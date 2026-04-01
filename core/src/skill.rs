@@ -20,43 +20,6 @@ pub fn skill_by_id(id: &str) -> Option<&'static SkillSpec> {
         .and_then(|d| d.skills.get(id))
 }
 
-pub fn player_skill_for_slot(slot: u32) -> &'static SkillSpec {
-    if let Ok(data) = crate::data::load_embedded_game_data() {
-        let idx = (slot as usize).min(data.player_loadout.len().saturating_sub(1));
-        let id = data.player_loadout[idx];
-        if let Some(spec) = data.skills.get(id) {
-            return spec;
-        }
-    }
-
-    skill_by_id("basic_attack").unwrap_or_else(|| {
-        static EMPTY_EFFECTS: [EffectSpec; 0] = [];
-        static EMPTY_TAGS: [&str; 0] = [];
-        static FALLBACK: SkillSpec = SkillSpec {
-            id: "basic_attack",
-            name: "Basic Attack",
-            description: "Fallback basic attack",
-            cost: 0,
-            damage_kind: DamageKind::Physical,
-            effects: &EMPTY_EFFECTS,
-            tags: &EMPTY_TAGS,
-        };
-        &FALLBACK
-    })
-}
-
-pub fn player_skill_names() -> Vec<String> {
-    if let Ok(data) = crate::data::load_embedded_game_data() {
-        return data
-            .player_loadout
-            .iter()
-            .filter_map(|id| data.skills.get(id))
-            .map(|spec| spec.name.to_string())
-            .collect();
-    }
-    Vec::new()
-}
-
 pub fn selectable_skill_ids() -> Vec<String> {
     if let Ok(data) = crate::data::load_embedded_game_data() {
         return data
@@ -90,17 +53,6 @@ pub fn selectable_skill_costs() -> Vec<u32> {
             .collect();
     }
     Vec::new()
-}
-
-pub fn calc_skills_cost(selected_skill_ids: &[SkillId]) -> u32 {
-    if let Ok(data) = crate::data::load_embedded_game_data() {
-        return selected_skill_ids
-            .iter()
-            .filter_map(|id| data.skills.get(*id))
-            .map(|skill| skill.cost)
-            .sum();
-    }
-    0
 }
 
 pub fn sample_skill_choices(

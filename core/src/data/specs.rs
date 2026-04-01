@@ -133,6 +133,9 @@ pub enum EffectSpec {
     },
 }
 
+// These content-facing fields are retained for UI/docs/authoring surfaces even if
+// the current combat loop does not read all of them yet.
+#[allow(dead_code)]
 #[derive(Clone, Copy, Debug)]
 pub struct SkillSpec {
     pub id: SkillId,
@@ -176,6 +179,7 @@ pub struct TriggerRule {
     pub effects: &'static [EffectSpec],
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Copy, Debug)]
 pub struct TraitSpec {
     pub id: TraitId,
@@ -186,6 +190,7 @@ pub struct TraitSpec {
     pub triggers: &'static [TriggerRule],
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct EnemySpec {
     pub id: EnemyId,

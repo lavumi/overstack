@@ -4,12 +4,10 @@ use crate::engine::runtime::{ActiveBattle, ActiveRun, TraitOwner, TriggerContext
 use crate::event::Event;
 use crate::log::push_event;
 use crate::model::{NodeType, PlayerInitStats, RunState};
-use crate::rng::SimpleRng;
 use crate::trait_spec::{
-    active_trait_names, calc_traits_cost as calc_selected_traits_cost, sample_trait_choices,
-    trait_by_id, TraitId, TriggerType,
+    active_trait_names, trait_by_id, TraitId, TriggerType,
 };
-use crate::skill::{calc_skills_cost as calc_selected_skills_cost, skill_by_id, SkillId};
+use crate::skill::skill_by_id;
 
 impl ActiveRun {
     pub(crate) fn new(seed: u64, max_nodes: u32) -> Self {
@@ -135,24 +133,6 @@ impl ActiveRun {
         true
     }
 
-    pub(crate) fn calc_traits_cost(&self, selected_trait_ids: &[&str]) -> Option<u32> {
-        let mut resolved = Vec::new();
-        for trait_id in selected_trait_ids {
-            let spec = trait_by_id(trait_id)?;
-            resolved.push(spec.id);
-        }
-        Some(calc_selected_traits_cost(&resolved))
-    }
-
-    pub(crate) fn calc_skills_cost(&self, selected_skill_ids: &[&str]) -> Option<u32> {
-        let mut resolved: Vec<SkillId> = Vec::new();
-        for skill_id in selected_skill_ids {
-            let spec = skill_by_id(skill_id)?;
-            resolved.push(spec.id);
-        }
-        Some(calc_selected_skills_cost(&resolved))
-    }
-
     fn roll_enemy_traits(&mut self, node_type: NodeType) -> Vec<TraitId> {
         let Some(game_data) = self.game_data else {
             return Vec::new();
@@ -180,15 +160,6 @@ impl ActiveRun {
             out.push(bag.remove(idx));
         }
         out
-    }
-
-    pub(crate) fn sample_trait_choices(
-        &self,
-        rng: &mut SimpleRng,
-        owned_traits: &[TraitId],
-        n: usize,
-    ) -> Vec<TraitId> {
-        sample_trait_choices(rng, owned_traits, n)
     }
 
     pub(crate) fn current_node_type(&self) -> Option<NodeType> {
@@ -335,6 +306,7 @@ impl ActiveRun {
 mod tests {
     use super::ActiveRun;
     use crate::rng::SimpleRng;
+    use crate::trait_spec::{calc_traits_cost, sample_trait_choices};
 
     #[test]
     fn apply_traits_to_run_updates_player_traits() {
@@ -345,18 +317,14 @@ mod tests {
 
     #[test]
     fn calc_traits_cost_sums_selected_traits() {
-        let run = ActiveRun::new(7, 1);
-        let total = run
-            .calc_traits_cost(&["cinder_scholar", "overcharge"])
-            .expect("traits should exist");
+        let total = calc_traits_cost(&["cinder_scholar", "overcharge"]);
         assert!(total > 0);
     }
 
     #[test]
     fn sample_trait_choices_excludes_owned_traits() {
-        let run = ActiveRun::new(7, 1);
         let mut rng = SimpleRng::new(77);
-        let sampled = run.sample_trait_choices(&mut rng, &["cinder_scholar"], 3);
+        let sampled = sample_trait_choices(&mut rng, &["cinder_scholar"], 3);
         assert!(!sampled.contains(&"cinder_scholar"));
     }
 

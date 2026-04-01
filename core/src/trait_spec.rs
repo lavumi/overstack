@@ -7,6 +7,9 @@ pub use crate::data::specs::{TraitId, TraitSpec, TriggerType};
 pub const TRAIT_WEIGHT_BASE: f32 = 100.0;
 pub const TRAIT_WEIGHT_P: f32 = 1.3;
 
+// Kept as an explicit timing model for future trait/UI work even if current
+// runtime dispatch does not query it directly outside tests yet.
+#[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TraitTriggerPhase {
     PreActionCalc,
@@ -16,6 +19,7 @@ pub enum TraitTriggerPhase {
     BattleBoundary,
 }
 
+#[allow(dead_code)]
 impl TriggerType {
     pub fn phase(self) -> TraitTriggerPhase {
         match self {
@@ -87,6 +91,8 @@ pub fn selectable_trait_costs() -> Vec<u32> {
     Vec::new()
 }
 
+// Shared budget helper kept as a standalone policy function for builder/reward reuse.
+#[allow(dead_code)]
 pub fn calc_traits_cost(selected_trait_ids: &[TraitId]) -> u32 {
     if let Ok(data) = crate::data::load_embedded_game_data() {
         return selected_trait_ids
