@@ -13,6 +13,7 @@ Rust + `wasm-bindgen` 기반의 전투 시뮬레이션 코어와, 이를 브라�
 
 ```text
 .
+├── build.sh
 ├── core
 │   ├── Cargo.toml
 │   ├── data
@@ -52,10 +53,18 @@ Rust + `wasm-bindgen` 기반의 전투 시뮬레이션 코어와, 이를 브라�
 │       │   └── manager.rs
 │       ├── step_api.rs
 │       └── trait_spec.rs
-├── run_wasm_site.sh
 └── site
     ├── index.html
-    └── main.js
+    ├── main.js
+    ├── styles
+    │   ├── landing.css
+    │   └── main.css
+    ├── ui
+    │   ├── builder.js
+    │   ├── hud.js
+    │   └── screens.js
+    └── wasm
+        └── client.js
 ```
 
 - `core`: WebAssembly로 빌드되는 게임 코어
@@ -78,7 +87,7 @@ Rust + `wasm-bindgen` 기반의 전투 시뮬레이션 코어와, 이를 브라�
 
 ### 2. 규칙/정책 계층
 
-- `skill.rs`: 스킬 조회와 플레이어 기본 로드아웃 접근
+- `skill.rs`: 스킬 조회, selectable starting skill 목록, cost/weight 기반 샘플링
 - `trait_spec.rs`: trait 조회, selectable trait 목록, cost 합산, cost 기반 weight 계산, reward용 비복원 샘플링
 - `combat_math.rs`: 피해 계산, 방어력 보정, 치명타 계산
 - `engine/numeric.rs`: HP 반올림, status tick 상수, 표시용 duration 변환 같은 숫자 정책
@@ -115,12 +124,9 @@ Rust + `wasm-bindgen` 기반의 전투 시뮬레이션 코어와, 이를 브라�
 
 ### 스킬
 
-플레이어 기본 슬롯 매핑:
+플레이어는 항상 `Basic Attack`을 사용할 수 있고, 시작 빌더에서 추가 시작 스킬 `0~4개`를 예산 안에 선택합니다.
 
-1. slot0: `Ember Lash`
-2. slot1: `Frost Bite`
-3. slot2: `Arc Jolt`
-4. slot3: `Ruin Strike`
+선택하지 않은 슬롯은 `Empty`로 남아 전투 중 비활성 상태가 됩니다.
 
 스킬 효과는 데이터 기반이며, 대표적으로 다음을 지원합니다.
 
@@ -321,21 +327,21 @@ Trait는 가장 형태가 다양해질 가능성이 큰 축입니다.
 
 관련 문서:
 
-- primitive 카탈로그: [docs/content_primitives.md](/Users/lavumi/private/overstack/docs/content_primitives.md)
-- 추가 프로세스: [docs/content_workflow.md](/Users/lavumi/private/overstack/docs/content_workflow.md)
-- trait timing model: [docs/trait_timing_model.md](/Users/lavumi/private/overstack/docs/trait_timing_model.md)
+- 플레이 가이드: [docs/player/index.md](/Users/lavumi/private/overstack/docs/player/index.md)
+- 개발 가이드: [docs/dev/index.md](/Users/lavumi/private/overstack/docs/dev/index.md)
 
 ## Step API
 
 현재 UI가 주로 사용하는 흐름은 아래와 같습니다.
 
-1. `create_run(seed, max_nodes)` 또는 `create_run_with_stats(...)`
-2. 시작 trait 목록은 `get_selectable_trait_names()` / `get_selectable_trait_ids()`로 조회
-3. 시작 trait 1개를 `set_active_trait(handle, trait_id)`로 적용
-4. 루프에서 `step_with_action(handle, dt, "none", -1)` 호출
-5. `StepResult.need_input === true`면 `"basic"` 또는 `"skill"` 입력 전달
-6. 매 루프마다 `get_snapshot(handle)`로 HUD 갱신
-7. 필요 시 `reset_run(handle)` / `destroy_run(handle)`
+1. 랜딩 화면에서 builder 진입
+2. `create_run_with_stats(...)`로 run 생성
+3. builder에서 고른 trait를 `set_active_traits(...)`로 적용
+4. builder에서 고른 starting skills를 `set_player_skills(...)`로 적용
+5. 루프에서 `step_with_action(handle, dt, "none", -1)` 호출
+6. `StepResult.need_input === true`면 `"basic"` 또는 `"skill"` 입력 전달
+7. 매 루프마다 `get_snapshot(handle)`로 HUD 갱신
+8. 필요 시 `reset_run(handle)` / `destroy_run(handle)`
 
 ### Exported API
 
@@ -350,13 +356,21 @@ Trait는 가장 형태가 다양해질 가능성이 큰 축입니다.
 - `get_active_traits(handle) -> Vec<String>`
 - `get_selectable_trait_names() -> Vec<String>`
 - `get_selectable_trait_ids() -> Vec<String>`
+- `get_selectable_trait_costs() -> Vec<u32>`
+- `get_selectable_skill_names() -> Vec<String>`
+- `get_selectable_skill_ids() -> Vec<String>`
+- `get_selectable_skill_costs() -> Vec<u32>`
+- `sample_starting_trait_ids(seed, n) -> Vec<String>`
+- `sample_starting_skill_ids(seed, n) -> Vec<String>`
 - `set_active_trait(handle, trait_id) -> bool`
+- `set_active_traits(handle, trait_ids_csv) -> bool`
+- `set_player_skills(handle, skill_ids_csv) -> bool`
 - `reset_run(handle) -> bool`
 - `destroy_run(handle)`
 
 ## 이벤트 로그
 
-브라우저 로그 뷰어에서 아래 구조화 이벤트를 확인할 수 있습니다.
+브라우저 이벤트 로그는 별도 DOM 패널이 아니라 DevTools console에서 확인합니다.
 
 - `RunStart`
 - `NodeStart`
@@ -374,13 +388,24 @@ Trait는 가장 형태가 다양해질 가능성이 큰 축입니다.
 
 ## 캐릭터 생성기
 
-현재 정적 사이트에는 pre-run builder가 들어가 있습니다.
+현재 정적 사이트의 시작 흐름은 아래와 같습니다.
 
-- random/manual 스탯 설정
-- 스탯 budget 검사
-- `create_run_with_stats(...)`로 초기 플레이어 스탯 전달
+1. 랜딩 화면
+2. 전체 화면 builder
+3. 전투 HUD
 
-trait 선택 UI는 아직 시작 시 1개 선택 방식이지만, 엔진 쪽에는 trait 비용 계산과 reward 샘플링용 유틸이 준비되어 있습니다.
+builder에서는 다음을 함께 정합니다.
+
+- 시작 trait 1개
+- 시작 스킬 0~4개
+- 스탯 세트
+- manual/random 예산 확인
+
+현재 규칙:
+
+- manual budget: `100`
+- random budget: `120`
+- random은 trait-first로 시작 trait 1개와 시작 스킬들을 먼저 고른 뒤 남은 예산으로 stats를 생성
 
 ## 빌드
 
@@ -417,11 +442,11 @@ python3 -m http.server
 한 번에 빌드 + 서버 실행:
 
 ```bash
-./run_wasm_site.sh
+./build.sh
 ```
 
 - 기본: 백그라운드 실행
-- 포그라운드: `./run_wasm_site.sh --fg`
+- 포그라운드: `./build.sh --fg`
 
 ## 데이터 수정 방법
 

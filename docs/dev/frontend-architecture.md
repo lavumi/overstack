@@ -52,9 +52,11 @@
 
 - trait-first
 - 시작 trait 정확히 1개
+- 시작 스킬 0~4개
 - manual budget 100
 - random budget 120
 - speed는 절대값 스탯
+- random은 trait 1개를 먼저 고르고, weighted starting skills를 채운 뒤 남은 예산으로 stats를 만든다
 
 ### `site/ui/hud.js`
 
@@ -79,10 +81,14 @@
 - step 진행
 - selectable trait 조회
 - starting trait sampling
+- selectable skill 조회
+- starting skill sampling
+- 선택한 trait/skills를 run에 적용
 
 ## 스타일
 
 - 레이아웃과 비주얼은 `site/styles/main.css`
+- 랜딩 화면 전용 비주얼은 `site/styles/landing.css`
 - 로그는 DOM 패널이 아니라 DevTools console
 
 ## 현재 남은 분리 후보

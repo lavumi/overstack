@@ -37,12 +37,20 @@
 작성 팁:
 
 - `basic_attack`을 제외한 시작 스킬은 `cost >= 1`로 잡습니다.
+- 시작 빌더에서 시작 스킬은 `0~4개`까지 열 수 있습니다.
+- 선택되지 않은 슬롯은 `Empty`로 남고 전투 중 비활성 처리됩니다.
 - 피해가 필요하면 `DealDamage`
 - 상태를 걸고 싶으면 `ApplyStatus`
 - 특정 상태가 있을 때만 더 세게 때리고 싶으면 `ConditionalDamageAmp`
 - 상태를 소비하고 싶으면 `RemoveStatus`
 
 현재 액션 처리 순서는 `calc -> damage -> status apply` 이므로, 새로 적용된 상태가 같은 액션의 damage 계산에 바로 되먹임되지는 않습니다.
+
+시작 빌더 기준 랜덤 생성 순서:
+
+1. 시작 trait 1개 weighted sample
+2. 시작 스킬 weighted sample
+3. 남은 예산으로 stats 생성
 
 ## 새 trait 추가
 
