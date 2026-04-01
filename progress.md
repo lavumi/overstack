@@ -19,3 +19,10 @@ Original prompt: 로그는 consolelog로 옮기는 방향으로 진행하자. 1�
 - Builder is now a full-screen stage instead of a modal popup.
 - Game HUD stays hidden until builder confirm starts the actual run.
 - Adjusted run startup so selected starting trait survives the UI reset and is applied after builder confirm.
+- 2026-04-01: Started JS module split for the frontend SPA.
+- Moved screen visibility control into `site/ui/screens.js`.
+- Moved builder state, budget logic, and trait selection into `site/ui/builder.js`.
+- Moved HUD rendering and action dock wiring into `site/ui/hud.js`.
+- `site/main.js` now focuses on WASM boot, run loop, event formatting, and module orchestration.
+- Added `site/wasm/client.js` so `main.js` no longer imports wasm-bindgen exports directly.
+- Current remaining split candidates: event/log formatting and run-loop state machine helpers.
