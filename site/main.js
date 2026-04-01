@@ -19,7 +19,7 @@ const DEFAULT_BUILDER_STATS = {
   matk: 25,
   def: 20,
   mdef: 15,
-  speed: 1.0,
+  speed: 35.0,
   crit_rate: 50,
   crit_mult: 1.5,
 };
@@ -30,7 +30,7 @@ const STAT_RANGES = {
   matk: [10, 60],
   def: [-20, 80],
   mdef: [0, 80],
-  speed: [0.6, 2.0],
+  speed: [20, 50],
   crit_rate: [0, 300],
   crit_mult: [1.25, 2.5],
 };

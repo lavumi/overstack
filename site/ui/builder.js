@@ -39,7 +39,7 @@ export function createBuilderUI(elements, options) {
     elements.statInputs.matk.value = String(stats.matk);
     elements.statInputs.def.value = String(stats.def);
     elements.statInputs.mdef.value = String(stats.mdef);
-    elements.statInputs.speed.value = String(stats.speed.toFixed(2));
+    elements.statInputs.speed.value = String(Math.round(stats.speed));
     elements.statInputs.crit_rate.value = String(stats.crit_rate.toFixed(1));
     elements.statInputs.crit_mult.value = String(stats.crit_mult.toFixed(2));
     refreshBudgetText(stats);
@@ -51,7 +51,8 @@ export function createBuilderUI(elements, options) {
     const matk_cost = stats.matk * 1.0;
     const def_cost = Math.max(0, stats.def) * 0.8;
     const mdef_cost = stats.mdef * 0.8;
-    const speed_cost = Math.max(0, stats.speed - 1.0) * 60;
+    // Speed is an absolute stat on the same scale enemies use.
+    const speed_cost = Math.max(0, stats.speed - 30.0) * 2.0;
     const crit_rate_cost = stats.crit_rate / 10;
     const crit_mult_cost = Math.max(0, stats.crit_mult - 1.5) * 40;
     return hp_cost + atk_cost + matk_cost + def_cost + mdef_cost + speed_cost + crit_rate_cost + crit_mult_cost;
@@ -123,7 +124,7 @@ export function createBuilderUI(elements, options) {
       else if (roll < 0.72) candidate.def += 1;
       else if (roll < 0.84) candidate.mdef += 1;
       else if (roll < 0.92) candidate.crit_rate += 5;
-      else if (roll < 0.97) candidate.speed += 0.05;
+      else if (roll < 0.97) candidate.speed += 1;
       else candidate.crit_mult += 0.05;
 
       if (candidate.max_hp > statRanges.max_hp[1]) continue;
@@ -140,7 +141,7 @@ export function createBuilderUI(elements, options) {
       }
     }
 
-    stats.speed = Number(stats.speed.toFixed(2));
+    stats.speed = Math.round(stats.speed);
     stats.crit_rate = Number(stats.crit_rate.toFixed(1));
     stats.crit_mult = Number(stats.crit_mult.toFixed(2));
     return stats;
