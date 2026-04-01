@@ -236,12 +236,12 @@ function randomSeed32() {
 }
 
 function selectedBuilderTraitName() {
-  return selectedBuilderTraitIds
-    .map((selectedId) => {
-      const idx = selectableTraitIds.indexOf(selectedId);
-      return idx >= 0 ? selectableTraitNames[idx] || selectedId : selectedId;
-    })
-    .join(", ");
+  const selectedId = selectedBuilderTraitIds[0];
+  if (!selectedId) {
+    return "";
+  }
+  const idx = selectableTraitIds.indexOf(selectedId);
+  return idx >= 0 ? selectableTraitNames[idx] || selectedId : selectedId;
 }
 
 function renderBuilderTraits() {
@@ -267,22 +267,15 @@ function renderBuilderTraits() {
     `;
     button.addEventListener("click", () => {
       if (builderMode !== "manual") return;
-      if (selectedSet.has(id)) {
-        selectedBuilderTraitIds = selectedBuilderTraitIds.filter((traitId) => traitId !== id);
-      } else {
-        const candidate = [...selectedBuilderTraitIds, id];
-        const stats = readBuilderStats();
-        const candidateCost = candidate.reduce((sum, traitId) => {
-          const traitIdx = selectableTraitIds.indexOf(traitId);
-          return sum + Number(selectableTraitCosts[traitIdx] || 0);
-        }, 0);
-        const totalCost = calcTotalCost(stats) + candidateCost;
-        if (totalCost > START_BUILD_BUDGET) {
-          builderError.textContent = `Trait budget exceeded: ${totalCost.toFixed(1)} / ${START_BUILD_BUDGET.toFixed(1)}`;
-          return;
-        }
-        selectedBuilderTraitIds = candidate;
+      const candidate = [id];
+      const stats = readBuilderStats();
+      const candidateCost = Number(cost || 0);
+      const totalCost = calcTotalCost(stats) + candidateCost;
+      if (totalCost > START_BUILD_BUDGET) {
+        builderError.textContent = `Trait budget exceeded: ${totalCost.toFixed(1)} / ${START_BUILD_BUDGET.toFixed(1)}`;
+        return;
       }
+      selectedBuilderTraitIds = candidate;
       builderError.textContent = "";
       renderBuilderTraits();
       refreshBudgetText();
@@ -293,29 +286,24 @@ function renderBuilderTraits() {
   builderTraitChoices.appendChild(frag);
 }
 
-function sampleBuilderTraits() {
-  const stats = readBuilderStats();
-  const statsCost = calcTotalCost(stats);
-  let remaining = START_BUILD_BUDGET - statsCost;
-  if (remaining <= 0) {
-    selectedBuilderTraitIds = [];
-    renderBuilderTraits();
-    refreshBudgetText(stats);
-    return;
-  }
+function sampleBuilderTrait() {
+  const sampled = sample_starting_trait_ids(randomSeed32(), 1);
+  selectedBuilderTraitIds = sampled.slice(0, 1);
+}
 
-  const sampled = sample_starting_trait_ids(randomSeed32(), selectableTraitIds.length);
-  const picked = [];
-  for (const traitId of sampled) {
-    const idx = selectableTraitIds.indexOf(traitId);
-    const cost = idx >= 0 ? Number(selectableTraitCosts[idx] || 0) : 0;
-    if (cost <= remaining) {
-      picked.push(traitId);
-      remaining -= cost;
-    }
+function selectedBuilderTraitCost() {
+  if (!selectedBuilderTraitIds.length) {
+    return 0;
   }
+  const idx = selectableTraitIds.indexOf(selectedBuilderTraitIds[0]);
+  return idx >= 0 ? Number(selectableTraitCosts[idx] || 0) : 0;
+}
 
-  selectedBuilderTraitIds = picked;
+function generateRandomBuild() {
+  sampleBuilderTrait();
+  const traitCost = selectedBuilderTraitCost();
+  const stats = generateRandomStats(START_BUILD_BUDGET - traitCost);
+  writeBuilderStats(stats);
   renderBuilderTraits();
   refreshBudgetText(stats);
 }
@@ -666,15 +654,7 @@ function calcSelectedBuilderTraitCost() {
   if (!selectedBuilderTraitIds.length || !selectableTraitIds.length) {
     return 0;
   }
-
-  let total = 0;
-  for (const traitId of selectedBuilderTraitIds) {
-    const idx = selectableTraitIds.indexOf(traitId);
-    if (idx >= 0) {
-      total += Number(selectableTraitCosts[idx] || 0);
-    }
-  }
-  return total;
+  return selectedBuilderTraitCost();
 }
 
 function calcBuildCost(stats = readBuilderStats()) {
@@ -698,16 +678,16 @@ function refreshBudgetText(stats = readBuilderStats()) {
   builderRemainingText.textContent = summary.remainingBudget.toFixed(1);
   const traitName = selectedBuilderTraitName();
   builderTraitHint.textContent = traitName
-    ? `Selected traits: ${traitName}`
+    ? `Selected trait: ${traitName}`
     : builderMode === "manual"
-      ? "Select any starting traits that fit the remaining budget."
-      : "Random mode rolls weighted traits that fit the remaining budget.";
+      ? "Select one starting trait that fits the remaining budget."
+      : "Random mode rolls one weighted trait first, then fills stats with the remaining budget.";
 }
 
-function generateRandomStats() {
+function generateRandomStats(budgetCap = START_BUILD_BUDGET) {
   const stats = { ...DEFAULT_BUILDER_STATS };
   let guard = 0;
-  while (calcTotalCost(stats) < START_BUILD_BUDGET && guard < 2000) {
+  while (calcTotalCost(stats) < budgetCap && guard < 2000) {
     guard += 1;
     const roll = Math.random();
     const candidate = { ...stats };
@@ -730,7 +710,7 @@ function generateRandomStats() {
     if (candidate.crit_rate > STAT_RANGES.crit_rate[1]) continue;
     if (candidate.crit_mult > STAT_RANGES.crit_mult[1]) continue;
 
-    if (calcTotalCost(candidate) <= START_BUILD_BUDGET) {
+    if (calcTotalCost(candidate) <= budgetCap) {
       Object.assign(stats, candidate);
     }
   }
@@ -751,6 +731,9 @@ function validateStatsForConfirm(stats) {
   }
 
   const summary = calcBuildCost(stats);
+  if (selectedBuilderTraitIds.length !== 1) {
+    errors.push("Select exactly one starting trait");
+  }
   if (summary.totalCost > START_BUILD_BUDGET) {
     errors.push(`Budget exceeded: ${summary.totalCost.toFixed(1)} / ${START_BUILD_BUDGET.toFixed(1)}`);
   }
@@ -767,8 +750,7 @@ function openBuilder() {
   builderModeRandom.checked = true;
   builderModeManual.checked = false;
   setBuilderMode("random");
-  writeBuilderStats(generateRandomStats());
-  sampleBuilderTraits();
+  generateRandomBuild();
   uiMode = "builder";
 }
 
@@ -867,29 +849,29 @@ resetBtn.addEventListener("click", () => {
 builderModeRandom.addEventListener("change", () => {
   if (!builderModeRandom.checked) return;
   setBuilderMode("random");
-  writeBuilderStats(generateRandomStats());
-  sampleBuilderTraits();
+  generateRandomBuild();
   builderError.textContent = "";
 });
 
 builderModeManual.addEventListener("change", () => {
   if (!builderModeManual.checked) return;
   setBuilderMode("manual");
+  if (selectedBuilderTraitIds.length === 0 && selectableTraitIds[0]) {
+    selectedBuilderTraitIds = [selectableTraitIds[0]];
+  }
   renderBuilderTraits();
   builderError.textContent = "";
   refreshBudgetText();
 });
 
 builderRandomBtn.addEventListener("click", () => {
-  writeBuilderStats(generateRandomStats());
-  sampleBuilderTraits();
+  generateRandomBuild();
   builderError.textContent = "";
 });
 
 builderRerollBtn.addEventListener("click", () => {
   if (builderMode === "random") {
-    writeBuilderStats(generateRandomStats());
-    sampleBuilderTraits();
+    generateRandomBuild();
   } else {
     renderBuilderTraits();
     refreshBudgetText();
