@@ -7,24 +7,45 @@
     <link rel="stylesheet" href="./styles/main.css" />
   </head>
   <body>
-    <section class="run-bar">
-      <label for="seedInput">Seed</label>
-      <input id="seedInput" type="number" value="1234" />
-      <label for="speedSelect">Speed</label>
-      <select id="speedSelect">
-        <option value="0.75">0.75x</option>
-        <option value="1" selected>1.0x</option>
-        <option value="1.5">1.5x</option>
-        <option value="2">2.0x</option>
-      </select>
-      <button id="startBtn" type="button">Start</button>
-      <button id="resetBtn" type="button">Reset</button>
-      <span id="bootStatus">WASM loading...</span>
+    <section id="landingView" class="landing-view">
+      <div class="landing-card">
+        <div class="landing-art" aria-hidden="true">
+          <div class="landing-core"></div>
+          <div class="landing-ring landing-ring-a"></div>
+          <div class="landing-ring landing-ring-b"></div>
+          <div class="landing-ring landing-ring-c"></div>
+        </div>
+        <div class="landing-copy">
+          <div class="landing-kicker">Status Combo Tactics</div>
+          <h1>Overstack</h1>
+          <p>
+            Build one starting trait, spend the rest of your budget on stats,
+            and enter the simulation only when the loadout is ready.
+          </p>
+        </div>
+        <div class="landing-actions">
+          <button id="startBtn" type="button" class="landing-start-btn" disabled>Start Run</button>
+          <span id="bootStatus">WASM loading...</span>
+        </div>
+        <details class="seed-panel">
+          <summary>Advanced Options</summary>
+          <div class="seed-panel-body">
+            <label for="seedInput">Seed</label>
+            <input id="seedInput" type="number" value="1234" />
+          </div>
+        </details>
+      </div>
     </section>
 
     <section id="builderOverlay" class="builder-overlay hidden">
       <div class="builder-card">
-        <h2>Character Builder</h2>
+        <div class="builder-heading">
+          <div>
+            <div class="meta-row">Stage 1</div>
+            <h2>Character Builder</h2>
+          </div>
+          <p>Pick one starting trait first, then tune the rest of the build budget into stats.</p>
+        </div>
         <div class="builder-actions">
           <label><input id="builderModeRandom" type="radio" name="builderMode" value="random" checked /> Random</label>
           <label><input id="builderModeManual" type="radio" name="builderMode" value="manual" /> Manual</label>
@@ -55,116 +76,129 @@
           <button id="builderRandomBtn" type="button">Random</button>
           <button id="builderRerollBtn" type="button">Reroll</button>
           <button id="builderConfirmBtn" type="button">Confirm</button>
-          <button id="builderCancelBtn" type="button">Back / Cancel</button>
+          <button id="builderCancelBtn" type="button">Back to Title</button>
         </div>
       </div>
     </section>
 
-    <main class="main-grid">
-      <section class="panel left-panel">
-        <h2 id="playerName">Player</h2>
-        <div class="meta-row">Node <span id="statusNode">-</span> / Battle <span id="statusBattle">-</span></div>
-
-        <div class="bar-block">
-          <div class="kv"><span>HP</span><span id="playerHpText">-</span></div>
-          <div class="bar-track"><div id="playerHpFill" class="bar-fill hp-fill"></div></div>
-        </div>
-
-        <div class="bar-block">
-          <div class="kv"><span>Action Gauge</span><span id="playerGaugeText">-</span></div>
-          <div class="bar-track"><div id="playerGaugeFill" class="bar-fill gauge-fill"></div></div>
-        </div>
-
-        <div class="kv"><span>ATK / MATK</span><span id="playerAtkMatk">-</span></div>
-        <div class="kv"><span>DEF (base -> eff)</span><span id="playerDef">-</span></div>
-        <div class="kv"><span>MDEF</span><span id="playerMdef">-</span></div>
-        <div class="kv"><span>Crit Chance</span><span id="playerCrit">-</span></div>
-
-        <div>
-          <div class="meta-row">Active Traits (Player)</div>
-          <div id="playerTraits" class="trait-list"></div>
-        </div>
-
-        <div>
-          <div class="meta-row">Statuses</div>
-          <div id="playerStatuses" class="status-list"></div>
-        </div>
+    <section id="gameShell" class="game-shell hidden">
+      <section class="run-bar">
+        <label for="speedSelect">Speed</label>
+        <select id="speedSelect">
+          <option value="0.75">0.75x</option>
+          <option value="1" selected>1.0x</option>
+          <option value="1.5">1.5x</option>
+          <option value="2">2.0x</option>
+        </select>
+        <button id="resetBtn" type="button">Exit Run</button>
+        <span class="meta-row">Combat feed streams to DevTools console</span>
       </section>
 
-      <section class="panel center-panel arena">
-        <div id="arenaStatus" class="arena-header">
-          <span>Ready</span>
-          <span class="meta-row">Combat Feed in Console</span>
-        </div>
-        <div class="arena-state">
-          <span>Battlefield telemetry is now streamed to DevTools console.</span>
-          <span id="arenaHint">Prepare your opening line.</span>
-        </div>
-        <div class="arena-stage">
-          <article id="stagePlayer" class="duelist duelist-player" data-state="idle">
-            <div class="duelist-info">
-              <div class="duelist-label">Operator</div>
-              <div id="stagePlayerName" class="duelist-name">Player</div>
-              <div id="stagePlayerVitals" class="duelist-vitals">HP - / Gauge -</div>
-              <div id="stagePlayerState" class="duelist-state-line">Awaiting deployment</div>
-            </div>
-            <div class="duelist-avatar" aria-hidden="true"></div>
-          </article>
-          <div class="versus-mark">VS</div>
-          <article id="stageEnemy" class="duelist duelist-enemy" data-state="idle">
-            <div class="duelist-info">
-              <div class="duelist-label">Hostile</div>
-              <div id="stageEnemyName" class="duelist-name">Enemy</div>
-              <div id="stageEnemyVitals" class="duelist-vitals">HP - / Gauge -</div>
-              <div id="stageEnemyState" class="duelist-state-line">No encounter loaded</div>
-            </div>
-            <div class="duelist-avatar" aria-hidden="true"></div>
-          </article>
-        </div>
-        <div class="arena-footer">
-          <span>Scene-first HUD pass: console holds the raw event stream.</span>
-          <span>Focus: timing, status pressure, action clarity.</span>
-        </div>
+      <main class="main-grid">
+        <section class="panel left-panel">
+          <h2 id="playerName">Player</h2>
+          <div class="meta-row">Node <span id="statusNode">-</span> / Battle <span id="statusBattle">-</span></div>
+
+          <div class="bar-block">
+            <div class="kv"><span>HP</span><span id="playerHpText">-</span></div>
+            <div class="bar-track"><div id="playerHpFill" class="bar-fill hp-fill"></div></div>
+          </div>
+
+          <div class="bar-block">
+            <div class="kv"><span>Action Gauge</span><span id="playerGaugeText">-</span></div>
+            <div class="bar-track"><div id="playerGaugeFill" class="bar-fill gauge-fill"></div></div>
+          </div>
+
+          <div class="kv"><span>ATK / MATK</span><span id="playerAtkMatk">-</span></div>
+          <div class="kv"><span>DEF (base -> eff)</span><span id="playerDef">-</span></div>
+          <div class="kv"><span>MDEF</span><span id="playerMdef">-</span></div>
+          <div class="kv"><span>Crit Chance</span><span id="playerCrit">-</span></div>
+
+          <div>
+            <div class="meta-row">Active Traits (Player)</div>
+            <div id="playerTraits" class="trait-list"></div>
+          </div>
+
+          <div>
+            <div class="meta-row">Statuses</div>
+            <div id="playerStatuses" class="status-list"></div>
+          </div>
+        </section>
+
+        <section class="panel center-panel arena">
+          <div id="arenaStatus" class="arena-header">
+            <span>Ready</span>
+            <span class="meta-row">Combat Feed in Console</span>
+          </div>
+          <div class="arena-state">
+            <span>Battlefield telemetry is now streamed to DevTools console.</span>
+            <span id="arenaHint">Prepare your opening line.</span>
+          </div>
+          <div class="arena-stage">
+            <article id="stagePlayer" class="duelist duelist-player" data-state="idle">
+              <div class="duelist-info">
+                <div class="duelist-label">Operator</div>
+                <div id="stagePlayerName" class="duelist-name">Player</div>
+                <div id="stagePlayerVitals" class="duelist-vitals">HP - / Gauge -</div>
+                <div id="stagePlayerState" class="duelist-state-line">Awaiting deployment</div>
+              </div>
+              <div class="duelist-avatar" aria-hidden="true"></div>
+            </article>
+            <div class="versus-mark">VS</div>
+            <article id="stageEnemy" class="duelist duelist-enemy" data-state="idle">
+              <div class="duelist-info">
+                <div class="duelist-label">Hostile</div>
+                <div id="stageEnemyName" class="duelist-name">Enemy</div>
+                <div id="stageEnemyVitals" class="duelist-vitals">HP - / Gauge -</div>
+                <div id="stageEnemyState" class="duelist-state-line">No encounter loaded</div>
+              </div>
+              <div class="duelist-avatar" aria-hidden="true"></div>
+            </article>
+          </div>
+          <div class="arena-footer">
+            <span>Scene-first HUD pass: console holds the raw event stream.</span>
+            <span>Focus: timing, status pressure, action clarity.</span>
+          </div>
+        </section>
+
+        <section class="panel right-panel">
+          <h2 id="enemyName">Enemy</h2>
+
+          <div class="bar-block">
+            <div class="kv"><span>HP</span><span id="enemyHpText">-</span></div>
+            <div class="bar-track"><div id="enemyHpFill" class="bar-fill hp-fill"></div></div>
+          </div>
+
+          <div class="bar-block">
+            <div class="kv"><span>Action Gauge</span><span id="enemyGaugeText">-</span></div>
+            <div class="bar-track"><div id="enemyGaugeFill" class="bar-fill gauge-fill"></div></div>
+          </div>
+
+          <div class="kv"><span>ATK / MATK</span><span id="enemyAtkMatk">-</span></div>
+          <div class="kv"><span>DEF (base -> eff)</span><span id="enemyDef">-</span></div>
+          <div class="kv"><span>MDEF</span><span id="enemyMdef">-</span></div>
+          <div class="kv"><span>Next Intent</span><span id="enemyIntent">-</span></div>
+
+          <div>
+            <div class="meta-row">Active Traits (Enemy)</div>
+            <div id="enemyTraits" class="trait-list"></div>
+          </div>
+
+          <div>
+            <div class="meta-row">Statuses</div>
+            <div id="enemyStatuses" class="status-list"></div>
+          </div>
+        </section>
+      </main>
+
+      <section class="action-bar">
+        <button id="actionBasic" type="button" disabled>Basic Attack</button>
+        <button id="actionSkill1" type="button" disabled>Skill 1</button>
+        <button id="actionSkill2" type="button" disabled>Skill 2</button>
+        <button id="actionSkill3" type="button" disabled>Skill 3</button>
+        <button id="actionSkill4" type="button" disabled>Skill 4</button>
+        <span id="inputPrompt"></span>
       </section>
-
-      <section class="panel right-panel">
-        <h2 id="enemyName">Enemy</h2>
-
-        <div class="bar-block">
-          <div class="kv"><span>HP</span><span id="enemyHpText">-</span></div>
-          <div class="bar-track"><div id="enemyHpFill" class="bar-fill hp-fill"></div></div>
-        </div>
-
-        <div class="bar-block">
-          <div class="kv"><span>Action Gauge</span><span id="enemyGaugeText">-</span></div>
-          <div class="bar-track"><div id="enemyGaugeFill" class="bar-fill gauge-fill"></div></div>
-        </div>
-
-        <div class="kv"><span>ATK / MATK</span><span id="enemyAtkMatk">-</span></div>
-        <div class="kv"><span>DEF (base -> eff)</span><span id="enemyDef">-</span></div>
-        <div class="kv"><span>MDEF</span><span id="enemyMdef">-</span></div>
-        <div class="kv"><span>Next Intent</span><span id="enemyIntent">-</span></div>
-
-        <div>
-          <div class="meta-row">Active Traits (Enemy)</div>
-          <div id="enemyTraits" class="trait-list"></div>
-        </div>
-
-        <div>
-          <div class="meta-row">Statuses</div>
-          <div id="enemyStatuses" class="status-list"></div>
-        </div>
-
-      </section>
-    </main>
-
-    <section class="action-bar">
-      <button id="actionBasic" type="button" disabled>Basic Attack</button>
-      <button id="actionSkill1" type="button" disabled>Skill 1</button>
-      <button id="actionSkill2" type="button" disabled>Skill 2</button>
-      <button id="actionSkill3" type="button" disabled>Skill 3</button>
-      <button id="actionSkill4" type="button" disabled>Skill 4</button>
-      <span id="inputPrompt"></span>
     </section>
 
     <!-- ESM main.js loads ./pkg/core.js via relative path. -->

@@ -14,3 +14,8 @@ Original prompt: 로그는 consolelog로 옮기는 방향으로 진행하자. 1�
 - Random builder mode now samples a weighted trait order from WASM and greedily fits as many traits as the remaining build budget allows.
 - TODO: Browser-check the new layout and confirm no runtime errors after the scene-first HUD pass.
 - TODO: Consider splitting `site/main.js` into smaller UI modules before adding canvas or richer animations.
+- 2026-04-01: Frontend flow changed to explicit `landing -> builder -> game`.
+- Added a title/landing screen with a centered visual motif, hidden seed options, and a single start button.
+- Builder is now a full-screen stage instead of a modal popup.
+- Game HUD stays hidden until builder confirm starts the actual run.
+- Adjusted run startup so selected starting trait survives the UI reset and is applied after builder confirm.

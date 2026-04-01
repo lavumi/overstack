@@ -19,6 +19,8 @@ const speedSelect = document.getElementById("speedSelect");
 const startBtn = document.getElementById("startBtn");
 const resetBtn = document.getElementById("resetBtn");
 const bootStatus = document.getElementById("bootStatus");
+const landingView = document.getElementById("landingView");
+const gameShell = document.getElementById("gameShell");
 const arenaStatus = document.getElementById("arenaStatus");
 const arenaHint = document.getElementById("arenaHint");
 
@@ -129,6 +131,24 @@ let selectableTraitCosts = [];
 let selectedBuilderTraitIds = [];
 let lastEnemyName = "Enemy";
 let builderMode = "random";
+
+function showLanding() {
+  landingView.classList.remove("hidden");
+  builderOverlay.classList.add("hidden");
+  gameShell.classList.add("hidden");
+}
+
+function showBuilder() {
+  landingView.classList.add("hidden");
+  builderOverlay.classList.remove("hidden");
+  gameShell.classList.add("hidden");
+}
+
+function showGame() {
+  landingView.classList.add("hidden");
+  builderOverlay.classList.add("hidden");
+  gameShell.classList.remove("hidden");
+}
 
 function stopLoop() {
   if (loopTimer !== null) {
@@ -374,22 +394,30 @@ function resetStatus() {
 }
 
 function closeBuilder() {
-  builderOverlay.classList.add("hidden");
+  showLanding();
   if (uiMode === "builder") {
     uiMode = "idle";
   }
 }
 
-function resetAll() {
+function resetCombatUi() {
   resetStatus();
   setCombatLabels([]);
   setActionButtonsEnabled(false);
   setInputPrompt("");
+}
+
+function clearBuilderState() {
   selectableTraitIds = [];
   selectableTraitNames = [];
   selectableTraitCosts = [];
   selectedBuilderTraitIds = [];
-  closeBuilder();
+}
+
+function resetAll() {
+  resetCombatUi();
+  clearBuilderState();
+  showLanding();
   uiMode = "idle";
 }
 
@@ -742,7 +770,7 @@ function validateStatsForConfirm(stats) {
 }
 
 function openBuilder() {
-  builderOverlay.classList.remove("hidden");
+  showBuilder();
   builderError.textContent = "";
   selectableTraitNames = get_selectable_trait_names();
   selectableTraitIds = get_selectable_trait_ids();
@@ -762,7 +790,9 @@ function startRunWithStats(stats) {
     currentHandle = null;
   }
 
-  resetAll();
+  const traitIds = [...selectedBuilderTraitIds];
+  resetCombatUi();
+  showGame();
 
   const seed = Number.parseInt(seedInput.value, 10);
   const safeSeed = Number.isNaN(seed) ? 1234 : seed;
@@ -778,10 +808,12 @@ function startRunWithStats(stats) {
     stats.crit_rate,
     stats.crit_mult,
   );
-  if (selectedBuilderTraitIds[0]) {
-    const ok = set_active_traits(currentHandle, selectedBuilderTraitIds.join(","));
+  if (traitIds[0]) {
+    const ok = set_active_traits(currentHandle, traitIds.join(","));
     if (!ok) {
       setArenaStatus("Trait apply failed");
+      showBuilder();
+      uiMode = "builder";
       return;
     }
   }
@@ -912,6 +944,7 @@ builderCancelBtn.addEventListener("click", () => {
 async function boot() {
   await init();
   bootStatus.textContent = "WASM ready";
+  startBtn.disabled = false;
   console.log("sim started");
 
   const smoke = run_run(1234, 1);
@@ -922,5 +955,6 @@ async function boot() {
 
 boot().catch((err) => {
   bootStatus.textContent = "WASM init failed";
+  startBtn.disabled = true;
   console.error("failed to initialize wasm:", err);
 });
