@@ -1,6 +1,7 @@
 export function createBuilderUI(elements, options) {
   const {
     startBuildBudget,
+    randomBuildBudget = startBuildBudget,
     defaultStats,
     statRanges,
     randomSeed32,
@@ -79,7 +80,7 @@ export function createBuilderUI(elements, options) {
     const statsCost = calcTotalCost(stats);
     const traitsCost = selectedBuilderTraitCost();
     const totalCost = statsCost + traitsCost;
-    const remainingBudget = startBuildBudget - totalCost;
+    const remainingBudget = currentBudgetCap() - totalCost;
     return {
       statsCost,
       traitsCost,
@@ -88,11 +89,15 @@ export function createBuilderUI(elements, options) {
     };
   }
 
+  function currentBudgetCap() {
+    return builderMode === "random" ? randomBuildBudget : startBuildBudget;
+  }
+
   function refreshBudgetText(stats = readStats()) {
     const summary = calcBuildCost(stats);
     elements.builderStatsCostText.textContent = summary.statsCost.toFixed(1);
     elements.builderTraitCostText.textContent = summary.traitsCost.toFixed(0);
-    elements.builderBudgetText.textContent = `${summary.totalCost.toFixed(1)} / ${startBuildBudget.toFixed(1)}`;
+    elements.builderBudgetText.textContent = `${summary.totalCost.toFixed(1)} / ${currentBudgetCap().toFixed(1)}`;
     elements.builderRemainingText.textContent = summary.remainingBudget.toFixed(1);
     const traitName = selectedBuilderTraitName();
     elements.builderTraitHint.textContent = traitName
@@ -111,7 +116,16 @@ export function createBuilderUI(elements, options) {
   }
 
   function generateRandomStats(budgetCap = startBuildBudget) {
-    const stats = { ...defaultStats };
+    const stats = {
+      max_hp: Math.max(100, statRanges.max_hp[0]),
+      atk: statRanges.atk[0],
+      matk: statRanges.matk[0],
+      def: Math.max(0, statRanges.def[0]),
+      mdef: statRanges.mdef[0],
+      speed: Math.max(30, statRanges.speed[0]),
+      crit_rate: statRanges.crit_rate[0],
+      crit_mult: Math.max(1.5, statRanges.crit_mult[0]),
+    };
     let guard = 0;
     while (calcTotalCost(stats) < budgetCap && guard < 2000) {
       guard += 1;
@@ -195,7 +209,7 @@ export function createBuilderUI(elements, options) {
 
   function generateRandomBuild() {
     sampleBuilderTrait();
-    const stats = generateRandomStats(startBuildBudget - selectedBuilderTraitCost());
+    const stats = generateRandomStats(randomBuildBudget - selectedBuilderTraitCost());
     writeStats(stats);
     renderBuilderTraits();
     refreshBudgetText(stats);
@@ -214,8 +228,8 @@ export function createBuilderUI(elements, options) {
     if (selectedBuilderTraitIds.length !== 1) {
       errors.push("Select exactly one starting trait");
     }
-    if (summary.totalCost > startBuildBudget) {
-      errors.push(`Budget exceeded: ${summary.totalCost.toFixed(1)} / ${startBuildBudget.toFixed(1)}`);
+    if (summary.totalCost > currentBudgetCap()) {
+      errors.push(`Budget exceeded: ${summary.totalCost.toFixed(1)} / ${currentBudgetCap().toFixed(1)}`);
     }
 
     return { ok: errors.length === 0, errors, ...summary };
@@ -285,7 +299,7 @@ export function createBuilderUI(elements, options) {
     const checked = validateStatsForConfirm(stats);
     elements.builderStatsCostText.textContent = checked.statsCost.toFixed(1);
     elements.builderTraitCostText.textContent = checked.traitsCost.toFixed(0);
-    elements.builderBudgetText.textContent = `${checked.totalCost.toFixed(1)} / ${startBuildBudget.toFixed(1)}`;
+    elements.builderBudgetText.textContent = `${checked.totalCost.toFixed(1)} / ${currentBudgetCap().toFixed(1)}`;
     elements.builderRemainingText.textContent = checked.remainingBudget.toFixed(1);
 
     if (!checked.ok) {

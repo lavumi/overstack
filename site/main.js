@@ -12,6 +12,7 @@ const LOOP_MS = 120;
 const MAX_NODES = 6;
 const CRIT_C = 100;
 const START_BUILD_BUDGET = 100;
+const RANDOM_BUILD_BUDGET = 120;
 
 const DEFAULT_BUILDER_STATS = {
   max_hp: 130,
@@ -125,6 +126,7 @@ const builder = createBuilderUI(
   },
   {
     startBuildBudget: START_BUILD_BUDGET,
+    randomBuildBudget: RANDOM_BUILD_BUDGET,
     defaultStats: DEFAULT_BUILDER_STATS,
     statRanges: STAT_RANGES,
     randomSeed32,
